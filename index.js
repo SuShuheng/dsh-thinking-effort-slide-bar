@@ -226,6 +226,11 @@ window.__ModuleLoader__.load({
     color: var(--dsw-alias-label-primary);
     font-weight: 600;
 }
+@property --dsh-es-end {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #4169e1;
+}
 .dsh-es-slider {
     -webkit-appearance: none;
     appearance: none;
@@ -237,7 +242,7 @@ window.__ModuleLoader__.load({
     box-shadow: inset 0 1px 1px rgb(0 0 0 / 8%);
     cursor: pointer;
     outline: none;
-    transition: box-shadow .15s ease;
+    transition: --dsh-es-end .4s ease, box-shadow .15s ease;
 }
 .dsh-es-slider:disabled {
     cursor: wait;
@@ -489,10 +494,11 @@ window.__ModuleLoader__.load({
             const fillPct = levels.length <= 1 ? 100 : Math.round((displayedIndex / maxIndex) * 100);
             const atMax = displayedIndex >= levels.length - 1;
             // At the last notch the track fades from blue to purple from 30%
-            // of the slider to its end.
+            // of the slider to its end; --dsh-es-end animates the swap from
+            // the penultimate notch (blue) to purple and back.
             const terminalStartPct = levels.length <= 1 ? 0 : 30;
             const trackBackground = atMax
-                ? `linear-gradient(to right, ${sliderColors.standard} 0%, ${sliderColors.standard} ${terminalStartPct}%, ${sliderColors.terminal} 100%)`
+                ? `linear-gradient(to right, ${sliderColors.standard} 0%, ${sliderColors.standard} ${terminalStartPct}%, var(--dsh-es-end) 100%)`
                 : `linear-gradient(to right, ${sliderColors.standard} 0%, ${sliderColors.standard} ${fillPct}%, var(--dsw-alias-interactive-bg-hover) ${fillPct}%, var(--dsw-alias-interactive-bg-hover) 100%)`;
             const slider = currentChoice !== undefined && levels.length > 0
                 ? react.createElement(
@@ -519,6 +525,7 @@ window.__ModuleLoader__.load({
                         onKeyUp: onSliderKeyUp,
                         "aria-label": "推理强度",
                         style: {
+                            "--dsh-es-end": atMax ? sliderColors.terminal : sliderColors.standard,
                             "--dsh-es-progress": atMax ? trackBackground : sliderColors.standard,
                             background: trackBackground
                         }

@@ -172,6 +172,8 @@ if (!thumbBlock.includes("border: 1px solid var(--dsw-alias-border-l2)")) {
     throw new Error("thumb ring must be the neutral border token");
 }
 if (!styleTag.textContent.includes("--dsh-es-progress")) throw new Error("Firefox terminal gradient variable missing");
+if (!styleTag.textContent.includes("@property --dsh-es-end")) throw new Error("end color must be a registered custom property for the swap animation");
+if (!styleTag.textContent.includes("transition: --dsh-es-end .4s ease")) throw new Error("end color must animate over 0.4s");
 
 function find(node, predicate) {
     if (node === null || node === undefined) return undefined;
@@ -351,8 +353,15 @@ tree = registered.component({
 const slider3 = findRange(tree);
 if (Number(slider3.props.value) !== 2) throw new Error("draft must move the thumb without committing");
 const terminalGradient = slider3.props.style.background;
-if (!terminalGradient.includes("#4169e1 30%") || !terminalGradient.includes("#8a63c9 100%")) {
+if (!terminalGradient.includes("#4169e1 30%") || !terminalGradient.includes("var(--dsh-es-end) 100%")) {
     throw new Error(`last notch must gradient from 30% to the end, got ${terminalGradient}`);
+}
+// The end color must interpolate blue -> purple for the swap animation.
+if (slider3.props.style["--dsh-es-end"] !== "#8a63c9") {
+    throw new Error(`last notch end color must be purple #8a63c9, got ${JSON.stringify(slider3.props.style["--dsh-es-end"])}`);
+}
+if (slider2.props.style["--dsh-es-end"] !== "#4169e1") {
+    throw new Error(`penultimate notch end color must stay blue, got ${JSON.stringify(slider2.props.style["--dsh-es-end"])}`);
 }
 if (slider3.props.style["--dsh-es-progress"] !== terminalGradient) {
     throw new Error("Firefox terminal progress must use the same gradient");
