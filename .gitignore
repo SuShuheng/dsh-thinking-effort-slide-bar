@@ -1,0 +1,90 @@
+# 依赖目录
+node_modules/
+
+# 日志文件
+*.log
+plugin.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 临时文件
+*.tmp
+*.temp
+tmp/
+temp/
+
+# 构建产物
+dist/
+build/
+out/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 本地配置
+config.local.yml
+cordis.local.yml
+
+# 测试覆盖率
+coverage/
+.nyc_output/
+
+# 错误报告
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 编辑器特定文件
+*.sublime-project
+*.sublime-workspace
+
+# 操作系统文件
+.Trashes
+ehthumbs.db
+ehthumbs_vista.db
+
+# 本地开发文件
+.local
+.local.*
+
+# 备份文件
+*.bak
+*.backup
+*.orig
+
+# 编译文件
+*.pyc
+*.pyo
+*.class
+*.o
+*.obj
+
+# 压缩文件
+*.gz
+*.tar
+*.zip
+*.rar
+*.7z
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 临时目录
+tmp/
+temp/
+.tmp/
+.temp/

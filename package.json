@@ -1,0 +1,34 @@
+{
+  "name": "dsh-effort-switcher",
+  "version": "1.0.0",
+  "description": "DSH插件：将推理强度选择重构为滑动条组件",
+  "type": "module",
+  "main": "host.js",
+  "exports": {
+    ".": "./host.js",
+    "./client": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-model-selection"
+      ]
+    }
+  },
+  "scripts": {
+    "check": "node --check index.js && node --check host.js",
+    "test": "node verify-client.cjs"
+  },
+  "keywords": [
+    "dsh",
+    "plugin",
+    "reasoning",
+    "effort",
+    "slider"
+  ],
+  "author": "June M",
+  "license": "MIT"
+}
