@@ -1,0 +1,7 @@
+# dsh-effort-switcher bundle patch.
+# `dsh plugin --profile web add github:lemonorangeapple/dsh-effort-switcher`
+# appends this package to dsh.profile.bundles and applies this insert.
+# Remove any leftover profile-level mount of the same id to avoid double-mount.
+- insert:
+    - id: effort-switcher
+      name: dsh-effort-switcher

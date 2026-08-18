@@ -9,30 +9,23 @@
 
 ## 安装
 
-DSH 不会扫描 `~/.dsh/plugins` 目录。插件必须作为当前 profile 的本地依赖，并通过 profile 的 Cordis patch 注册。
+```powershell
+dsh plugin --profile web add github:lemonorangeapple/dsh-effort-switcher
+```
 
-以下命令适用于 Windows PowerShell 和当前 Web profile。
+命令会把本包装进当前 Web profile，并因 `dsh.bundle` 声明自动写入 `dsh.profile.bundles`。不必再编辑 profile 的 `cordis.patch.yml`。
 
-1. 在 profile 中链接本地项目：
+完全停止并重新启动 `dsh web`，然后刷新 `http://127.0.0.1:3080`。DSH 仅在 Web 进程启动时扫描 `dsh.client` 元数据；仅刷新旧页面或运行独立开发服务器不会加载本插件。
+
+如果 profile 的 `cordis.patch.yml` 里还留着旧的手工挂载（`id: effort-switcher`），先删掉，避免双重挂载。
+
+## 卸载
 
 ```powershell
-cd C:\Users\June\.dsh\profiles\web
-pnpm add --save-dev "github:lemonorangeapple/dsh-effort-switcher"
+dsh plugin --profile web remove dsh-effort-switcher
 ```
 
-2. 编辑 `C:\Users\June\.dsh\profiles\web\cordis.patch.yml`，将内容设为：
-
-```yaml
-- insert:
-    - id: effort-switcher
-      name: dsh-effort-switcher
-```
-
-如果该文件已经有其他 patch 项，将上面的 `insert` 项追加到顶层 YAML 数组，不要覆盖现有项。
-
-3. 完全停止并重新启动 `dsh web`，然后刷新 `http://127.0.0.1:3080`。
-
-DSH 仅在 Web 进程启动时扫描 `dsh.client` 元数据；仅刷新旧页面或运行独立开发服务器不会加载本插件。
+卸载后同样需要重启 `dsh web`。
 
 ## 验证安装
 
@@ -53,14 +46,21 @@ effort-switcher
 ## 项目结构
 
 ```text
-index.js       Browser client module and slider UI.
-host.js        Minimal Cordis host entry used by DSH loader discovery.
-package.json   Package exports and dsh.client manifest.
-README.md      Installation and operating instructions.
-.gitignore     Local development exclusions.
+index.js           Browser client module and slider UI.
+host.js            Minimal Cordis host entry used by DSH loader discovery.
+cordis.patch.yml   Bundle patch that inserts the host plugin row.
+package.json       Package exports, dsh.bundle, and dsh.client manifest.
+README.md          Installation and operating instructions.
+.gitignore         Local development exclusions.
 ```
 
 ## 开发
+
+从本仓库目录把本地 checkout 链进 Web profile：
+
+```powershell
+dsh plugin --profile web add .
+```
 
 修改 `index.js` 后，必须重启 `dsh web` 并刷新现有 Web GUI，除非当前 DSH checkout 已运行针对该客户端包的 HMR 构建监视器。
 
@@ -72,6 +72,7 @@ npm run check
 
 ## 排障
 
-- **滑块没有显示**：确认 `cordis.patch.yml` 中存在 loader 条目，完全重启 `dsh web`，并在模型选择器中选用支持 reasoning effort 的模型。
+- **滑块没有显示**：确认 `dsh.profile.bundles` 中存在 `dsh-effort-switcher`，完全重启 `dsh web`，并在模型选择器中选用支持 reasoning effort 的模型。
 - **安装后页面未更新**：Web 启动图已经生成；停止旧 `dsh web` 进程后重新启动。
+- **双重控件或重复挂载**：删掉 profile `cordis.patch.yml` 里旧的 `effort-switcher` insert，只保留 bundle 层。
 - **拖动后未生效**：检查模型是否支持多个 reasoning effort 级别。对于仅有默认强度或不支持 reasoning 的模型，插件会隐藏控件。
