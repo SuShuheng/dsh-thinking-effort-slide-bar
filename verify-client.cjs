@@ -73,6 +73,30 @@ const snapshot = {
                 ]
             }
         }]
+    }, {
+        id: "deepseek-official",
+        name: "DeepSeek",
+        models: [{
+            id: "DeepSeek-V4-Flash",
+            name: "DeepSeek-V4-Flash",
+            description: "官方 DeepSeek 路由"
+        }, {
+            id: "DeepSeek-V4-Pro",
+            name: "DeepSeek-V4-Pro",
+            description: "官方 DeepSeek 路由"
+        }]
+    }, {
+        id: "xiaomi",
+        name: "Xiaomi",
+        models: [{
+            id: "mimo-v2.5",
+            name: "MiMo-V2.5",
+            description: "Xiaomi 自建路由"
+        }, {
+            id: "mimo-v2.5-pro",
+            name: "MiMo-V2.5-Pro",
+            description: "Xiaomi 自建路由"
+        }]
     }]
 };
 
@@ -95,7 +119,12 @@ const directory = {
     select(selection) {
         directoryCalls.select.push(selection);
         snapshot.current = { ...snapshot.current, ...selection };
-        return Promise.resolve();
+        return {
+            then(resolve) {
+                resolve(true);
+                return this;
+            }
+        };
     }
 };
 
@@ -159,21 +188,34 @@ if (!styleTag.textContent.includes("::-webkit-scrollbar")) throw new Error("webk
 if (!styleTag.textContent.includes("-webkit-slider-thumb")) throw new Error("slider thumb style missing");
 if (!styleTag.textContent.includes("::-moz-range-progress")) throw new Error("firefox slider progress style missing");
 if (!styleTag.textContent.includes("dsh-es-pop")) throw new Error("pop animation missing from css");
-if (!styleTag.textContent.includes("height: 28px")) throw new Error("slider track must be 28px tall");
-if (!styleTag.textContent.includes("width: 34px")) throw new Error("slider thumb must be 34px wide (a size larger than the track)");
-if (!styleTag.textContent.includes("border-radius: 17px")) throw new Error("thumb radius must match its fully-rounded corners");
-if (!styleTag.textContent.includes("box-sizing: border-box")) throw new Error("larger thumb must stay inside the track");
-// The thumb ring must be neutral, never tinted with the fill color.
+if (!styleTag.textContent.includes("height: 24px")) throw new Error("slider track must be 24px tall");
+if (!styleTag.textContent.includes("width: 28px")) throw new Error("slider thumb must be 28px wide");
+if (!styleTag.textContent.includes(".dsh-es-sliderKnob")) throw new Error("custom thumb knob missing");
+if (!styleTag.textContent.includes("transition: left .315s ease")) throw new Error("thumb must ease between notches at the last-notch pace");
+if (!styleTag.textContent.includes("transition: width .315s ease")) {
+    throw new Error("fill must ease with the thumb at the last-notch pace");
+}
+if (!styleTag.textContent.includes(".dsh-es-sliderBloom")) {
+    throw new Error("terminal color must fade on a dedicated bloom layer");
+}
+if (!styleTag.textContent.includes("transition: opacity .315s ease")) {
+    throw new Error("bloom color fade must be slower than the thumb travel");
+}
+if ((styleTag.textContent.match(/background: rgb\(255 255 255 \/ 48%\)/g) || []).length < 2) {
+    throw new Error("inactive and active slider dots must share the same subdued style");
+}
+if (!styleTag.textContent.includes("background: #4c8dff")) throw new Error("fill must use the reference blue");
+if (!styleTag.textContent.includes("linear-gradient(90deg, #4c8dff 0%, #7b6cff 52%, #b56bff 100%)")) {
+    throw new Error("last notch must use the blue-to-purple reference gradient");
+}
 const thumbBlock = styleTag.textContent.match(/\.dsh-es-slider::-webkit-slider-thumb\s*\{[^}]*\}/)?.[0] ?? "";
-if (thumbBlock.includes("--dsh-es-fill") || thumbBlock.includes("color-mix")) {
-    throw new Error("thumb ring must not carry the fill color");
-}
-if (!thumbBlock.includes("border: 1px solid var(--dsw-alias-border-l2)")) {
-    throw new Error("thumb ring must be the neutral border token");
-}
-if (!styleTag.textContent.includes("--dsh-es-progress")) throw new Error("Firefox terminal gradient variable missing");
-if (!styleTag.textContent.includes("@property --dsh-es-end")) throw new Error("end color must be a registered custom property for the swap animation");
-if (!styleTag.textContent.includes("transition: --dsh-es-end .4s ease")) throw new Error("end color must animate over 0.4s");
+if (thumbBlock.includes("border: 1px solid")) throw new Error("thumb must not have a colored ring");
+if (!styleTag.textContent.includes(".dsh-es-sliderRail")) throw new Error("slider must render a dedicated rail layer");
+if (!styleTag.textContent.includes(".dsh-es-sliderGroove")) throw new Error("fill must be clipped by a rounded groove");
+if (!styleTag.textContent.includes(".dsh-es-sliderFill")) throw new Error("slider must render a dedicated fill layer");
+if (!styleTag.textContent.includes(".dsh-es-sliderTicks")) throw new Error("slider must render embedded notch markers");
+if (!styleTag.textContent.includes("z-index: 3")) throw new Error("native input must sit above the visual rail");
+if (!styleTag.textContent.includes("accent-color: transparent")) throw new Error("native slider accent must not paint leftover fill");
 
 function find(node, predicate) {
     if (node === null || node === undefined) return undefined;
@@ -194,6 +236,9 @@ function find(node, predicate) {
 }
 function findRange(node) {
     return find(node, (n) => n.props?.type === "range");
+}
+function findSliderFill(node) {
+    return find(node, (n) => String(n.props?.className ?? "").split(/\s+/).includes("dsh-es-sliderFill"));
 }
 function text(node) {
     if (node === null || node === undefined) return "";
@@ -312,20 +357,61 @@ if (typeof modelMenuStyle.bottom !== "string" || !modelMenuStyle.bottom.includes
     throw new Error(`secondary window must float above the panel, got ${JSON.stringify(modelMenuStyle)}`);
 }
 const listText = text(modelMenu);
-if (!listText.includes("Demo") || !listText.includes("Reasoning Model")) throw new Error("model list content missing");
+if (!listText.includes("MiMo")) throw new Error("model list must contain the Xiaomi model group");
+const deepseekItem = find(modelMenu, (n) => n.props?.type === "button" && text(n).includes("DeepSeek-V4-Flash"));
+if (!deepseekItem) throw new Error("DeepSeek official model missing from list");
+if (deepseekItem.props.disabled === true || deepseekItem.props["aria-disabled"] === true) {
+    throw new Error("text-only models must stay clickable until the host rejects them");
+}
+if (find(deepseekItem, (n) => n.props?.className === "dsh-es-menuItemNotice")) {
+    throw new Error("image notice must stay hidden until the current session has images");
+}
 
-// 10. Slider: drag updates the draft locally, release commits reasoningEffort
+function renderWithImages() {
+    beginRender();
+    return registered.component({
+        locked: false,
+        available: face.available,
+        directory: face.directory,
+        load: face.load,
+        select: face.select,
+        useSession: (select) => select({
+            nodes: [{ kind: "user", content: [{ type: "image", attachment: {} }] }],
+            queue: [],
+            partial: null
+        })
+    });
+}
+
+tree = renderWithImages();
+const imagedMenu = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
+const imagedDeepseek = find(imagedMenu, (n) => n.props?.type === "button" && text(n).includes("DeepSeek-V4-Flash"));
+if (!imagedDeepseek) throw new Error("DeepSeek official model missing after image session render");
+const deepseekNotice = find(imagedDeepseek, (n) => n.props?.className === "dsh-es-menuItemNotice");
+if (!deepseekNotice || typeof deepseekNotice.props.onMouseEnter !== "function") {
+    throw new Error("text-only model must show a hoverable notice icon once the session has images");
+}
+deepseekNotice.props.onMouseEnter({
+    currentTarget: { getBoundingClientRect: () => ({ right: 120, bottom: 80 }) }
+});
+tree = renderWithImages();
+const hoverTip = find(tree, (n) => n.props?.className === "dsh-es-menuItemTip");
+if (!hoverTip || !text(hoverTip).includes("当前会话已有图片")) {
+    throw new Error("hover tip must explain the image incompatibility only after the session has images");
+}
+
+// 10. Slider: the native input sits above the reference-style rail, fill,
+// and embedded tick markers. Dragging updates the draft locally.
+const sliderRail = find(sliderWrap2, (n) => n.props?.className === "dsh-es-sliderRail");
+const sliderTicks = find(sliderWrap2, (n) => n.props?.className === "dsh-es-sliderTicks");
 const slider = findRange(sliderWrap2);
-if (!slider) throw new Error("range slider not rendered in menu");
+const sliderFill = findSliderFill(sliderWrap2);
+if (!sliderRail || !sliderTicks || !slider || !sliderFill) throw new Error("reference-style slider layers missing");
 if (Number(slider.props.value) !== 0) throw new Error("slider value should map low -> index 0");
-// Gradient fill must track the thumb position (Codex-style track)
-if (!slider.props.style || typeof slider.props.style.background !== "string" || !slider.props.style.background.includes("linear-gradient")) {
-    throw new Error("slider must have gradient fill");
-}
-// All non-terminal notches stay muted blue.
-if (!slider.props.style.background.includes("#4169e1")) {
-    throw new Error(`initial fill must be blue #4169e1, got ${JSON.stringify(slider.props.style.background)}`);
-}
+if (sliderFill.props.style.width !== "0px") throw new Error("first notch fill must sit fully under the thumb");
+const sliderKnob = find(sliderWrap2, (n) => n.props?.className === "dsh-es-sliderKnob");
+if (!sliderKnob) throw new Error("custom slider knob missing");
+if (sliderKnob.props.style.left !== "14px") throw new Error("first notch knob must stay inside the rail");
 // Drag to the penultimate notch: it must remain fully blue, with no purple.
 slider.props.onInput({ currentTarget: { value: "1" } });
 beginRender();
@@ -337,10 +423,13 @@ tree = registered.component({
     select: face.select
 });
 const slider2 = findRange(tree);
+const fill2 = findSliderFill(tree);
 if (Number(slider2.props.value) !== 1) throw new Error("draft must move the thumb to the penultimate notch");
-if (!slider2.props.style.background.includes("#4169e1")) throw new Error("penultimate notch must remain blue");
-if (slider2.props.style.background.includes("#8a63c9")) throw new Error("penultimate notch must not include terminal purple");
-// At the final notch, only the terminal segment transitions from blue to purple.
+if (fill2.props.style.width !== "calc(50% + 0px)") throw new Error("mid fill must end at the thumb center");
+const knob2 = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
+if (!knob2 || knob2.props.style.left !== fill2.props.style.width) {
+    throw new Error("mid fill must stay glued to the knob");
+}
 slider2.props.onInput({ currentTarget: { value: "2" } });
 beginRender();
 tree = registered.component({
@@ -351,24 +440,25 @@ tree = registered.component({
     select: face.select
 });
 const slider3 = findRange(tree);
+const fill3 = findSliderFill(tree);
 if (Number(slider3.props.value) !== 2) throw new Error("draft must move the thumb without committing");
-const terminalGradient = slider3.props.style.background;
-if (!terminalGradient.includes("#4169e1 30%") || !terminalGradient.includes("var(--dsh-es-end) 100%")) {
-    throw new Error(`last notch must gradient from 30% to the end, got ${terminalGradient}`);
+if (fill3.props.style.width !== "100%") throw new Error("terminal fill must span the full rail");
+const knob3 = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
+if (!knob3 || knob3.props.style.left !== "calc(100% - 14px)") {
+    throw new Error("last notch knob must stay inside the rail");
 }
-// The end color must interpolate blue -> purple for the swap animation.
-if (slider3.props.style["--dsh-es-end"] !== "#8a63c9") {
-    throw new Error(`last notch end color must be purple #8a63c9, got ${JSON.stringify(slider3.props.style["--dsh-es-end"])}`);
+if (!String(fill3.props.className).includes("dsh-es-sliderFillMax")) {
+    throw new Error("last notch must reveal the bloom layer");
 }
-if (slider2.props.style["--dsh-es-end"] !== "#4169e1") {
-    throw new Error(`penultimate notch end color must stay blue, got ${JSON.stringify(slider2.props.style["--dsh-es-end"])}`);
+if (String(fill2.props.className).includes("dsh-es-sliderFillMax")) {
+    throw new Error("penultimate notch must keep the bloom hidden");
 }
-if (slider3.props.style["--dsh-es-progress"] !== terminalGradient) {
-    throw new Error("Firefox terminal progress must use the same gradient");
+if (!find(fill3, (n) => n.props?.className === "dsh-es-sliderBloom")) {
+    throw new Error("bloom layer must stay mounted so color can fade");
 }
 if (directoryCalls.select.length !== 0) throw new Error("drag must not commit before release");
 // Release commits
-slider3.props.onMouseUp();
+slider3.props.onMouseUp({ currentTarget: { value: "2" } });
 const selected = directoryCalls.select[0];
 if (!selected || selected.reasoningEffort !== "high") {
     throw new Error(`expected high, got ${JSON.stringify(selected)}`);
@@ -414,6 +504,68 @@ if (switchSelection.model !== "other-model" || switchSelection.reasoningEffort !
 if (Number(afterSwitch.props.value) !== 0) {
     throw new Error(`after switching, thumb must show the new default (index 0), got ${afterSwitch.props.value}`);
 }
+
+// 13. When the host rejects a model switch, the secondary picker must stay
+//     open and surface the returned error instead of silently closing.
+const failingSelection = { provider: "xiaomi", model: "mimo-v2.5-pro" };
+const modelRowForFail = find(tree, (n) => n.props?.className === "dsh-es-modelRow");
+if (!modelRowForFail) throw new Error("model row missing before failed-switch test");
+modelRowForFail.props.onClick();
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const originalSelect = face.select;
+face.select = (selection) => {
+    directoryCalls.select.push(selection);
+    snapshot.error = `session.selectModel failed: model-unavailable: Model "${selection.model}" does not accept image input, but this session already contains images; select an image-capable model.`;
+    return {
+        then(resolve) {
+            resolve(false);
+            return this;
+        }
+    };
+};
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const mimoItem = find(tree, (n) => n.props?.type === "button" && text(n).includes("MiMo-V2.5-Pro"));
+if (!mimoItem) throw new Error("MiMo-V2.5-Pro item must be present in the model list");
+mimoItem.props.onClick();
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const menuStillOpen = find(tree, (n) => n.props?.className === "dsh-es-menu");
+const secondaryStillOpen = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
+if (!menuStillOpen || !secondaryStillOpen) {
+    throw new Error("failed model switch must keep the picker menus open");
+}
+const blockedItem = find(secondaryStillOpen, (n) => n.props?.type === "button" && text(n).includes("MiMo-V2.5-Pro"));
+if (!blockedItem || blockedItem.props["aria-disabled"] !== true) {
+    throw new Error("image-incompatible model must be marked unavailable after the host rejects it");
+}
+const blockedNotice = find(blockedItem, (n) => n.props?.className === "dsh-es-menuItemNotice");
+if (!blockedNotice) throw new Error("blocked model must keep the notice icon");
+const mimoSelection = directoryCalls.select[directoryCalls.select.length - 1];
+if (mimoSelection.provider !== failingSelection.provider || mimoSelection.model !== failingSelection.model || mimoSelection.reasoningEffort !== void 0) {
+    throw new Error(`MiMo selection must omit reasoningEffort, got ${JSON.stringify(mimoSelection)}`);
+}
+face.select = originalSelect;
+snapshot.error = null;
 
 // 7. Load must be delegated when available
 face.load();

@@ -8,10 +8,6 @@ window.__ModuleLoader__.load({
         const name = "effort-switcher";
         const inject = ["slots", "modelDirectories", "sessions"];
         const slotName = "conversation.input.model";
-        const sliderColors = {
-            standard: "#4169e1",
-            terminal: "#8a63c9"
-        };
 
         const css = `
 .dsh-es-root {
@@ -186,6 +182,39 @@ window.__ModuleLoader__.load({
 .dsh-es-menuItemActive {
     color: var(--dsw-alias-state-info-primary);
 }
+.dsh-es-menuItemBlocked {
+    color: var(--dsw-alias-label-tertiary);
+    cursor: not-allowed;
+}
+.dsh-es-menuItemBlocked:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+}
+.dsh-es-menuItemNotice {
+    position: relative;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    color: var(--dsw-alias-label-tertiary);
+}
+.dsh-es-menuItemTip {
+    z-index: 10001;
+    position: fixed;
+    width: max-content;
+    max-width: 220px;
+    padding: 6px 8px;
+    border: 1px solid var(--dsw-alias-border-inverted);
+    border-radius: 8px;
+    background: var(--dsw-specific-menu);
+    box-shadow: var(--dsw-shadow-lv3);
+    color: var(--dsw-alias-label-primary);
+    font-size: 12px;
+    line-height: 16px;
+    white-space: normal;
+    pointer-events: none;
+}
 .dsh-es-menuItemDesc {
     color: var(--dsw-alias-label-caption);
     font-size: 12px;
@@ -199,6 +228,15 @@ window.__ModuleLoader__.load({
     padding: 10px;
     font-size: 13px;
     line-height: 20px;
+}
+.dsh-es-menuError {
+    background: var(--dsw-alias-interactive-bg-hover-danger);
+    color: var(--dsw-alias-state-error-primary);
+    border-radius: 8px;
+    margin: 4px;
+    padding: 7px 8px;
+    font-size: 12px;
+    line-height: 18px;
 }
 .dsh-es-menuDivider {
     height: 1px;
@@ -226,92 +264,134 @@ window.__ModuleLoader__.load({
     color: var(--dsw-alias-label-primary);
     font-weight: 600;
 }
-@property --dsh-es-end {
-    syntax: "<color>";
-    inherits: true;
-    initial-value: #4169e1;
+.dsh-es-sliderRail {
+    position: relative;
+    height: 24px;
+    margin: 10px 0 12px;
+}
+.dsh-es-sliderGroove {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: 12px;
+    pointer-events: none;
+}
+.dsh-es-sliderTrack, .dsh-es-sliderFill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 12px;
+    pointer-events: none;
+}
+.dsh-es-sliderTrack {
+    right: 0;
+    background: var(--dsw-alias-interactive-bg-hover);
+}
+.dsh-es-sliderFill {
+    z-index: 1;
+    overflow: hidden;
+    background: #4c8dff;
+    transition: width .315s ease;
+}
+.dsh-es-sliderBloom {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, #4c8dff 0%, #7b6cff 52%, #b56bff 100%);
+    opacity: 0;
+    transition: opacity .315s ease;
+}
+.dsh-es-sliderFillMax .dsh-es-sliderBloom {
+    opacity: 1;
+}
+.dsh-es-sliderKnob {
+    position: absolute;
+    z-index: 4;
+    top: 50%;
+    width: 28px;
+    height: 28px;
+    margin-left: -14px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 22%);
+    pointer-events: none;
+    transform: translateY(-50%);
+    transition: left .315s ease;
+}
+.dsh-es-sliderTicks {
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    right: 14px;
+    bottom: 0;
+    left: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+}
+.dsh-es-sliderTick {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgb(255 255 255 / 48%);
+}
+.dsh-es-sliderTickActive {
+    background: rgb(255 255 255 / 48%);
 }
 .dsh-es-slider {
     -webkit-appearance: none;
     appearance: none;
+    position: absolute;
+    z-index: 3;
+    inset: 0;
     width: 100%;
-    height: 28px;
-    margin: 12px 0;
-    border-radius: 14px;
-    background: var(--dsw-alias-interactive-bg-hover);
-    box-shadow: inset 0 1px 1px rgb(0 0 0 / 8%);
+    height: 24px;
+    margin: 0;
+    background: transparent;
     cursor: pointer;
     outline: none;
-    transition: --dsh-es-end .4s ease, box-shadow .15s ease;
+    accent-color: transparent;
+    color: transparent;
 }
 .dsh-es-slider:disabled {
     cursor: wait;
     opacity: .6;
 }
+.dsh-es-slider::-webkit-slider-runnable-track {
+    height: 24px;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+}
 .dsh-es-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     box-sizing: border-box;
-    width: 34px;
-    height: 34px;
-    border-radius: 17px;
-    background: var(--dsw-specific-menu);
-    border: 1px solid var(--dsw-alias-border-l2);
-    box-shadow: 0 1px 3px rgb(0 0 0 / 18%);
+    width: 28px;
+    height: 28px;
+    margin-top: -2px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    box-shadow: none;
     cursor: pointer;
-    transition: box-shadow .15s ease, transform .15s ease;
 }
-.dsh-es-slider:hover:not(:disabled)::-webkit-slider-thumb {
-    box-shadow: 0 1px 4px rgb(0 0 0 / 24%);
-}
-.dsh-es-slider:active:not(:disabled)::-webkit-slider-thumb {
-    transform: scale(1.06);
-    box-shadow: 0 2px 8px rgb(0 0 0 / 26%);
+.dsh-es-slider::-moz-range-track, .dsh-es-slider::-moz-range-progress {
+    height: 24px;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
 }
 .dsh-es-slider::-moz-range-thumb {
     box-sizing: border-box;
-    width: 34px;
-    height: 34px;
-    border-radius: 17px;
-    background: var(--dsw-specific-menu);
-    border: 1px solid var(--dsw-alias-border-l2);
-    box-shadow: 0 1px 3px rgb(0 0 0 / 18%);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    box-shadow: none;
     cursor: pointer;
-    transition: box-shadow .15s ease, transform .15s ease;
-}
-.dsh-es-slider:hover:not(:disabled)::-moz-range-thumb {
-    box-shadow: 0 1px 4px rgb(0 0 0 / 24%);
-}
-.dsh-es-slider:active:not(:disabled)::-moz-range-thumb {
-    transform: scale(1.06);
-    box-shadow: 0 2px 8px rgb(0 0 0 / 26%);
-}
-.dsh-es-slider::-moz-range-track {
-    height: 28px;
-    border-radius: 14px;
-    background: var(--dsw-alias-interactive-bg-hover);
-}
-.dsh-es-slider::-moz-range-progress {
-    height: 28px;
-    border-radius: 14px;
-    background: var(--dsh-es-progress, #4169e1);
-}
-.dsh-es-sliderScale {
-    display: flex;
-    justify-content: space-between;
-    gap: 4px;
-    color: var(--dsw-alias-label-caption);
-    font-size: 10px;
-    line-height: 14px;
-}
-.dsh-es-sliderScale span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.dsh-es-sliderScaleActive {
-    color: var(--dsw-alias-label-primary);
-    font-weight: 600;
 }
 .dsh-es-sliderDesc {
     margin: 2px 0 0;
@@ -347,9 +427,28 @@ window.__ModuleLoader__.load({
             return index >= 0 ? index : Math.floor((levels.length - 1) / 2);
         }
 
+        function modelKey(provider, model) {
+            return `${provider}/${model}`;
+        }
+
+        function explainSelectionError(message) {
+            if (typeof message !== "string" || message.length === 0) return "无法切换模型";
+            if (message.includes("does not accept image input") || message.includes("already contains images")) {
+                return IMAGE_BLOCK_REASON;
+            }
+            if (message.includes("does not support reasoning effort")) {
+                return "此模型不支持当前推理强度";
+            }
+            return message;
+        }
+
         // Same glyphs as DSH's IconChevronDownOutline14 / IconChevronRightOutline14.
         const ICON_CHEVRON_DOWN = "M11.8486 5.5L11.4238 5.92383L8.69727 8.65137C8.44157 8.90706 8.21562 9.13382 8.01172 9.29785C7.79912 9.46883 7.55595 9.61756 7.25 9.66602C7.08435 9.69222 6.91565 9.69222 6.75 9.66602C6.44405 9.61756 6.20088 9.46883 5.98828 9.29785C5.78438 9.13382 5.55843 8.90706 5.30273 8.65137L2.57617 5.92383L2.15137 5.5L3 4.65137L3.42383 5.07617L6.15137 7.80273C6.42595 8.07732 6.59876 8.24849 6.74023 8.3623C6.87291 8.46904 6.92272 8.47813 6.9375 8.48047C6.97895 8.48703 7.02105 8.48703 7.0625 8.48047C7.07728 8.47813 7.12709 8.46904 7.25977 8.3623C7.40124 8.24849 7.57405 8.07732 7.84863 7.80273L10.5762 5.07617L11 4.65137L11.8486 5.5Z";
         const ICON_CHEVRON_RIGHT = "M5.5 2.15137L5.92383 2.57617L8.65137 5.30273C8.90706 5.55843 9.13382 5.78438 9.29785 5.98828C9.46883 6.20088 9.61756 6.44405 9.66602 6.75C9.69222 6.91565 9.69222 7.08435 9.66602 7.25C9.61756 7.55595 9.46883 7.79912 9.29785 8.01172C9.13382 8.21561 8.90706 8.44157 8.65137 8.69727L5.92383 11.4238L5.5 11.8486L4.65137 11L5.07617 10.5762L7.80273 7.84863C8.07732 7.57405 8.24849 7.40124 8.3623 7.25977C8.46904 7.12709 8.47813 7.07728 8.48047 7.0625C8.48703 7.02105 8.48703 6.97895 8.48047 6.9375C8.47813 6.92272 8.46904 6.87291 8.3623 6.74023C8.24848 6.59876 8.07732 6.42595 7.80273 6.15137L5.07617 3.42383L4.65137 3L5.5 2.15137Z";
+        const ICON_WARNING_BAR = "M6.3002 3.32843L7.69986 3.32843L7.69986 7.79657H6.3002L6.3002 3.32843Z";
+        const ICON_WARNING_DOT = "M6.3002 9.01935H7.69986V10.6711H6.3002V9.01935Z";
+        const ICON_WARNING_RING = "M12.6328 6.99976C12.6328 3.88874 10.111 1.36694 7 1.36694C3.88899 1.36695 1.3672 3.88875 1.36719 6.99976C1.36719 10.1108 3.88899 12.6326 7 12.6326C10.111 12.6326 12.6328 10.1108 12.6328 6.99976ZM13.8582 6.99976C13.8582 10.7873 10.7876 13.8579 7 13.8579C3.21244 13.8579 0.141846 10.7873 0.141846 6.99976C0.141857 3.2122 3.21245 0.141612 7 0.141602C10.7876 0.141602 13.8581 3.21219 13.8582 6.99976Z";
+        const IMAGE_BLOCK_REASON = "当前会话已有图片，此模型不支持图片输入";
 
         const chevronIcon = (path, className) => react.createElement(
             "svg",
@@ -357,7 +456,55 @@ window.__ModuleLoader__.load({
             react.createElement("path", { d: path, fill: "currentColor" })
         );
 
-        function EffortSliderSeat({ locked, available, directory, load, select }) {
+        const warningIcon = (className) => react.createElement(
+            "svg",
+            { className, width: 14, height: 14, viewBox: "0 0 14 14", fill: "none", xmlns: "http://www.w3.org/2000/svg" },
+            react.createElement("path", { d: ICON_WARNING_BAR, fill: "currentColor" }),
+            react.createElement("path", { d: ICON_WARNING_DOT, fill: "currentColor" }),
+            react.createElement("path", { d: ICON_WARNING_RING, fill: "currentColor" })
+        );
+
+        function knownTextOnlyModel(provider) {
+            return provider === "deepseek-official";
+        }
+
+        function defaultUseSession(select) {
+            return select({ nodes: [], queue: [], partial: null });
+        }
+
+        // Host image walk: typed content plus nested tool-result blocks.
+        function contentHasImage(content) {
+            if (!Array.isArray(content)) return false;
+            for (const block of content) {
+                if (block?.type === "image") return true;
+                if (block?.type === "tool-result" && contentHasImage(block.content)) return true;
+            }
+            return false;
+        }
+
+        // Assistant UI blocks use kind; raw content still uses type.
+        function assistantBlocksHaveImage(blocks) {
+            if (!Array.isArray(blocks)) return false;
+            for (const block of blocks) {
+                if (block?.kind === "image" || block?.type === "image") return true;
+                if (block?.type === "tool-result" && contentHasImage(block.content)) return true;
+            }
+            return false;
+        }
+
+        // Durable history, queue, and in-flight assistant output all count.
+        function snapshotHasImage(snapshot) {
+            if (snapshot == null) return false;
+            if ((snapshot.queue ?? []).some((item) => contentHasImage(item.content))) return true;
+            if (assistantBlocksHaveImage(snapshot.partial?.blocks)) return true;
+            for (const node of snapshot.nodes ?? []) {
+                if (contentHasImage(node.content)) return true;
+                if (assistantBlocksHaveImage(node.blocks)) return true;
+            }
+            return false;
+        }
+
+        function EffortSliderSeat({ locked, available, directory, load, select, useSession }) {
             const state = react.useSyncExternalStore(
                 (listener) => directory.subscribe(listener),
                 () => directory.getSnapshot()
@@ -365,15 +512,23 @@ window.__ModuleLoader__.load({
 
             const [open, setOpen] = react.useState(false);
             const [modelsOpen, setModelsOpen] = react.useState(false);
+            const [blockedModels, setBlockedModels] = react.useState({});
+            const [hoveredNotice, setHoveredNotice] = react.useState(null);
             const [draft, setDraft] = react.useState(-1);
+            const [pendingIndex, setPendingIndex] = react.useState(-1);
             const [panelHeight, setPanelHeight] = react.useState(0);
             const rootRef = react.useRef(null);
             const triggerRef = react.useRef(null);
             const panelRef = react.useRef(null);
+            const hasImages = (useSession ?? defaultUseSession)(snapshotHasImage);
 
             react.useEffect(() => {
                 if (available) load();
             }, [available, load]);
+
+            react.useEffect(() => {
+                if (!open) setHoveredNotice(null);
+            }, [open]);
 
             react.useEffect(() => {
                 if (!open) return;
@@ -405,6 +560,7 @@ window.__ModuleLoader__.load({
             // local draft so the thumb follows the real selection.
             react.useEffect(() => {
                 setDraft(-1);
+                setPendingIndex(-1);
             }, [state.current?.provider, state.current?.model]);
 
             if (!available) return null;
@@ -425,36 +581,66 @@ window.__ModuleLoader__.load({
             const fullLabel = effortLabel === undefined ? modelLabel : `${modelLabel} · ${effortLabel}`;
 
             const chooseModel = (group, model) => {
-                select({
+                const key = modelKey(group.id, model.id);
+                if (blockedModels[key] !== undefined) return;
+                if (state.current?.provider === group.id && state.current.model === model.id) {
+                    setModelsOpen(false);
+                    return;
+                }
+                const selection = {
                     provider: group.id,
                     model: model.id,
                     ...model.reasoning?.defaultEffort === void 0 ? {} : { reasoningEffort: model.reasoning.defaultEffort }
+                };
+                select(selection).then((accepted) => {
+                    if (!accepted) {
+                        setBlockedModels((current) => ({
+                            ...current,
+                            [key]: explainSelectionError(directory.getSnapshot().error)
+                        }));
+                        return;
+                    }
+                    setDraft(-1);
+                    setPendingIndex(-1);
+                    setModelsOpen(false);
                 });
-                setDraft(-1);
-                setModelsOpen(false);
             };
 
             const updateDraft = (event) => {
                 setDraft(Number(event.currentTarget.value));
             };
 
-            // Commit only when the thumb is released or the keyboard confirms;
-            // dragging just updates the local draft so the slider stays fluid.
-            const commitEffort = () => {
-                if (draft < 0 || busy) return;
-                const nextEffort = levels[draft]?.id;
-                if (nextEffort === undefined || nextEffort === currentEffort) return;
+            // Commit the live thumb value on release. Keep the local pin until
+            // the store catches up so the knob does not snap back.
+            const commitEffort = (event) => {
+                const nextIndex = Number(event?.currentTarget?.value ?? draft);
+                if (!Number.isFinite(nextIndex) || nextIndex < 0 || busy) return;
+                const nextEffort = levels[nextIndex]?.id;
+                if (nextEffort === undefined || nextEffort === currentEffort) {
+                    setDraft(-1);
+                    setPendingIndex(-1);
+                    return;
+                }
+                setDraft(nextIndex);
+                setPendingIndex(nextIndex);
                 select({
                     provider: state.current.provider,
                     model: state.current.model,
                     reasoningEffort: nextEffort
                 });
-                setDraft(-1);
             };
+
+            react.useEffect(() => {
+                if (pendingIndex < 0) return;
+                if (currentIndex === pendingIndex) {
+                    setDraft(-1);
+                    setPendingIndex(-1);
+                }
+            }, [currentIndex, pendingIndex]);
 
             const onSliderKeyUp = (event) => {
                 if (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "Home" || event.key === "End") {
-                    commitEffort();
+                    commitEffort(event);
                 }
             };
 
@@ -469,18 +655,46 @@ window.__ModuleLoader__.load({
                         react.createElement("div", { className: "dsh-es-menuGroup" }, group.name),
                         group.models.map((model) => {
                             const active = state.current?.provider === group.id && state.current.model === model.id;
+                            const failedReason = blockedModels[modelKey(group.id, model.id)];
+                            const imageBlocked = hasImages && knownTextOnlyModel(group.id);
+                            const warned = failedReason !== undefined || imageBlocked;
+                            const blocked = failedReason !== undefined;
+                            const noticeReason = failedReason ?? (imageBlocked ? IMAGE_BLOCK_REASON : undefined);
                             return react.createElement(
                                 "button",
                                 {
                                     key: model.id,
                                     type: "button",
-                                    className: active ? "dsh-es-menuItem dsh-es-menuItemActive" : "dsh-es-menuItem",
+                                    className: [
+                                        "dsh-es-menuItem",
+                                        active ? "dsh-es-menuItemActive" : "",
+                                        blocked ? "dsh-es-menuItemBlocked" : ""
+                                    ].filter(Boolean).join(" "),
+                                    "aria-disabled": blocked,
                                     onClick: () => chooseModel(group, model)
                                 },
                                 react.createElement("span", { className: "dsh-es-triggerLabel" }, model.name),
-                                model.description !== void 0
-                                    ? react.createElement("span", { className: "dsh-es-menuItemDesc" }, model.description)
-                                    : null
+                                warned
+                                    ? react.createElement(
+                                        "span",
+                                        {
+                                            className: "dsh-es-menuItemNotice",
+                                            tabIndex: 0,
+                                            onMouseEnter: (event) => {
+                                                const box = event.currentTarget.getBoundingClientRect();
+                                                setHoveredNotice({
+                                                    text: noticeReason,
+                                                    left: Math.round(box.right - 8),
+                                                    top: Math.round(box.bottom + 6)
+                                                });
+                                            },
+                                            onMouseLeave: () => setHoveredNotice(null)
+                                        },
+                                        warningIcon()
+                                    )
+                                    : model.description !== void 0
+                                        ? react.createElement("span", { className: "dsh-es-menuItemDesc" }, model.description)
+                                        : null
                             );
                         })
                     ));
@@ -488,18 +702,24 @@ window.__ModuleLoader__.load({
             // Always-visible slider block below the model row.
             // Dragging updates only the local draft (fluid); the selection is
             // committed on release / keyboard confirm.
-            const displayedIndex = draft >= 0 ? draft : currentIndex;
+            const displayedIndex = draft >= 0 ? draft : pendingIndex >= 0 ? pendingIndex : currentIndex;
             const displayedLevel = levels[displayedIndex];
             const maxIndex = levels.length - 1;
             const fillPct = levels.length <= 1 ? 100 : Math.round((displayedIndex / maxIndex) * 100);
             const atMax = displayedIndex >= levels.length - 1;
-            // At the last notch the track fades from blue to purple from 30%
-            // of the slider to its end; --dsh-es-end animates the swap from
-            // the penultimate notch (blue) to purple and back.
-            const terminalStartPct = levels.length <= 1 ? 0 : 30;
-            const trackBackground = atMax
-                ? `linear-gradient(to right, ${sliderColors.standard} 0%, ${sliderColors.standard} ${terminalStartPct}%, var(--dsh-es-end) 100%)`
-                : `linear-gradient(to right, ${sliderColors.standard} 0%, ${sliderColors.standard} ${fillPct}%, var(--dsw-alias-interactive-bg-hover) ${fillPct}%, var(--dsw-alias-interactive-bg-hover) 100%)`;
+            const thumbRadius = 14;
+            const travel = `calc(${fillPct}% + ${Math.round(thumbRadius - (thumbRadius * 2 * fillPct) / 100)}px)`;
+            const knobLeft = atMax || levels.length <= 1
+                ? `calc(100% - ${thumbRadius}px)`
+                : fillPct <= 0
+                    ? `${thumbRadius}px`
+                    : travel;
+            const fillWidth = atMax || levels.length <= 1
+                ? "100%"
+                : fillPct <= 0
+                    ? "0px"
+                    : travel;
+
             const slider = currentChoice !== undefined && levels.length > 0
                 ? react.createElement(
                     "div",
@@ -510,37 +730,46 @@ window.__ModuleLoader__.load({
                         react.createElement("span", null, "推理强度"),
                         react.createElement("strong", null, displayedLevel?.name ?? currentEffort)
                     ),
-                    react.createElement("input", {
-                        className: "dsh-es-slider",
-                        type: "range",
-                        min: 0,
-                        max: Math.max(levels.length - 1, 0),
-                        step: 1,
-                        value: displayedIndex,
-                        disabled: locked,
-                        onInput: updateDraft,
-                        onChange: updateDraft,
-                        onMouseUp: commitEffort,
-                        onTouchEnd: commitEffort,
-                        onKeyUp: onSliderKeyUp,
-                        "aria-label": "推理强度",
-                        style: {
-                            "--dsh-es-end": atMax ? sliderColors.terminal : sliderColors.standard,
-                            "--dsh-es-progress": atMax ? trackBackground : sliderColors.standard,
-                            background: trackBackground
-                        }
-                    }),
                     react.createElement(
                         "div",
-                        { className: "dsh-es-sliderScale" },
-                        levels.map((level, index) => react.createElement(
-                            "span",
-                            {
+                        { className: "dsh-es-sliderRail" },
+                        react.createElement(
+                            "div",
+                            { className: "dsh-es-sliderGroove", "aria-hidden": true },
+                            react.createElement("div", { className: "dsh-es-sliderTrack" }),
+                            react.createElement("div", {
+                                className: atMax ? "dsh-es-sliderFill dsh-es-sliderFillMax" : "dsh-es-sliderFill",
+                                style: { width: fillWidth }
+                            }, react.createElement("div", { className: "dsh-es-sliderBloom" }))
+                        ),
+                        react.createElement("div", {
+                            className: "dsh-es-sliderKnob",
+                            "aria-hidden": true,
+                            style: { left: knobLeft }
+                        }),
+                        react.createElement(
+                            "div",
+                            { className: "dsh-es-sliderTicks", "aria-hidden": true },
+                            levels.map((level, index) => react.createElement("span", {
                                 key: level.id,
-                                className: index === displayedIndex ? "dsh-es-sliderScaleActive" : undefined
-                            },
-                            level.name ?? level.id
-                        ))
+                                className: index <= displayedIndex ? "dsh-es-sliderTick dsh-es-sliderTickActive" : "dsh-es-sliderTick"
+                            }))
+                        ),
+                        react.createElement("input", {
+                            className: "dsh-es-slider",
+                            type: "range",
+                            min: 0,
+                            max: Math.max(levels.length - 1, 0),
+                            step: 1,
+                            value: displayedIndex,
+                            disabled: locked,
+                            onInput: updateDraft,
+                            onChange: updateDraft,
+                            onMouseUp: commitEffort,
+                            onTouchEnd: commitEffort,
+                            onKeyUp: onSliderKeyUp,
+                            "aria-label": "推理强度"
+                        })
                     ),
                     displayedLevel?.description
                         ? react.createElement("p", { className: "dsh-es-sliderDesc" }, displayedLevel.description)
@@ -627,7 +856,22 @@ window.__ModuleLoader__.load({
                     chevronIcon(ICON_CHEVRON_DOWN, open ? "dsh-es-chevron dsh-es-chevronOpen" : "dsh-es-chevron")
                 ),
                 menu,
-                modelMenu
+                modelMenu,
+                hoveredNotice
+                    ? react.createElement(
+                        "div",
+                        {
+                            className: "dsh-es-menuItemTip",
+                            role: "tooltip",
+                            style: {
+                                left: `${hoveredNotice.left}px`,
+                                top: `${hoveredNotice.top}px`,
+                                transform: "translateX(-100%)"
+                            }
+                        },
+                        hoveredNotice.text
+                    )
+                    : null
             );
         }
 
