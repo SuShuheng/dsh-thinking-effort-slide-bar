@@ -316,7 +316,11 @@ window.__ModuleLoader__.load({
     box-shadow: 0 1px 3px rgb(0 0 0 / 22%);
     pointer-events: none;
     transform: translateY(-50%);
-    transition: left .315s ease;
+    transition: left .315s ease, transform .12s ease, box-shadow .12s ease;
+}
+.dsh-es-sliderKnobActive {
+    transform: translateY(-50%) scale(1.2) !important;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 32%) !important;
 }
 .dsh-es-sliderTicks {
     position: absolute;
@@ -520,6 +524,7 @@ window.__ModuleLoader__.load({
             const rootRef = react.useRef(null);
             const triggerRef = react.useRef(null);
             const panelRef = react.useRef(null);
+            const knobRef = react.useRef(null);
             const hasImages = (useSession ?? defaultUseSession)(snapshotHasImage);
 
             react.useEffect(() => {
@@ -608,6 +613,15 @@ window.__ModuleLoader__.load({
 
             const updateDraft = (event) => {
                 setDraft(Number(event.currentTarget.value));
+            };
+
+            // Grow the knob while the slider is pressed. Direct DOM class
+            // toggling via ref — no extra state, no effect callbacks.
+            const pressKnob = () => {
+                if (knobRef.current) knobRef.current.classList.add("dsh-es-sliderKnobActive");
+            };
+            const releaseKnob = () => {
+                if (knobRef.current) knobRef.current.classList.remove("dsh-es-sliderKnobActive");
             };
 
             // Commit the live thumb value on release. Keep the local pin until
@@ -714,11 +728,11 @@ window.__ModuleLoader__.load({
                 : fillPct <= 0
                     ? `${thumbRadius}px`
                     : travel;
-            const fillWidth = atMax || levels.length <= 1
-                ? "100%"
-                : fillPct <= 0
-                    ? "0px"
-                    : travel;
+            // Fill always ends at the knob center; at max that is
+            // calc(100% - 14px), never 100%, so no color bleeds past the knob.
+            const fillWidth = fillPct <= 0
+                ? "0px"
+                : travel;
 
             const slider = currentChoice !== undefined && levels.length > 0
                 ? react.createElement(
@@ -743,6 +757,7 @@ window.__ModuleLoader__.load({
                             }, react.createElement("div", { className: "dsh-es-sliderBloom" }))
                         ),
                         react.createElement("div", {
+                            ref: knobRef,
                             className: "dsh-es-sliderKnob",
                             "aria-hidden": true,
                             style: { left: knobLeft }
@@ -765,8 +780,20 @@ window.__ModuleLoader__.load({
                             disabled: locked,
                             onInput: updateDraft,
                             onChange: updateDraft,
-                            onMouseUp: commitEffort,
-                            onTouchEnd: commitEffort,
+                            onPointerDown: pressKnob,
+                            onPointerUp: releaseKnob,
+                            onPointerCancel: releaseKnob,
+                            onMouseDown: pressKnob,
+                            onMouseUp: (event) => {
+                                releaseKnob();
+                                commitEffort(event);
+                            },
+                            onTouchStart: pressKnob,
+                            onTouchEnd: (event) => {
+                                releaseKnob();
+                                commitEffort(event);
+                            },
+                            onTouchCancel: releaseKnob,
                             onKeyUp: onSliderKeyUp,
                             "aria-label": "推理强度"
                         })

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body { font-family: monospace; padding: 20px; }
+.sliderWrap { padding: 3px 8px 5px; display: flex; flex-direction: column; gap: 2px; width: 240px; }
+.sliderRail { position: relative; height: 20px; margin: 8px 0 10px; }
+.sliderGroove { position: absolute; inset: 0; overflow: hidden; border-radius: 10px; pointer-events: none; }
+.sliderTrack, .sliderFill { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 10px; pointer-events: none; }
+.sliderTrack { right: 0; background: #e0e0e0; }
+.sliderFill { z-index: 1; overflow: hidden; background: #4c8dff; transition: width .315s ease; }
+.sliderBloom { position: absolute; inset: 0; background: linear-gradient(90deg, #4c8dff 0%, #7b6cff 52%, #b56bff 100%); opacity: 0; transition: opacity .315s ease; }
+.sliderFillMax .sliderBloom { opacity: 1; }
+.sliderKnob { position: absolute; z-index: 4; top: 50%; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 22%); pointer-events: none; transform: translateY(-50%); transition: left .315s ease; }
+</style>
+</head>
+<body>
+<h3>Slider geometry measurement</h3>
+<div id="out"></div>
+<script>
+function render(index, levelsCount) {
+    const maxIndex = levelsCount - 1;
+    const fillPct = levelsCount <= 1 ? 100 : Math.round((index / maxIndex) * 100);
+    const atMax = index >= levelsCount - 1;
+    const thumbRadius = 14;
+    const travel = `calc(${fillPct}% + ${Math.round(thumbRadius - (thumbRadius * 2 * fillPct) / 100)}px)`;
+    const knobLeft = atMax || levelsCount <= 1
+        ? `calc(100% - ${thumbRadius}px)`
+        : fillPct <= 0
+            ? `${thumbRadius}px`
+            : travel;
+    const fillWidth = fillPct <= 0
+        ? "0px"
+        : travel;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'sliderWrap';
+    const rail = document.createElement('div');
+    rail.className = 'sliderRail';
+    const groove = document.createElement('div');
+    groove.className = 'sliderGroove';
+    const track = document.createElement('div');
+    track.className = 'sliderTrack';
+    const fill = document.createElement('div');
+    fill.className = atMax ? 'sliderFill sliderFillMax' : 'sliderFill';
+    fill.style.width = fillWidth;
+    const bloom = document.createElement('div');
+    bloom.className = 'sliderBloom';
+    fill.appendChild(bloom);
+    groove.appendChild(track);
+    groove.appendChild(fill);
+    const knob = document.createElement('div');
+    knob.className = 'sliderKnob';
+    knob.style.left = knobLeft;
+    rail.appendChild(groove);
+    rail.appendChild(knob);
+    wrap.appendChild(rail);
+    document.body.appendChild(wrap);
+
+    const rw = rail.getBoundingClientRect();
+    const fw = fill.getBoundingClientRect();
+    const kw = knob.getBoundingClientRect();
+    const knobCenter = kw.left + kw.width / 2;
+    const fillRight = fw.right;
+    const gap = fillRight - knobCenter;
+
+    return {
+        label: `levels=${levelsCount} index=${index} pct=${fillPct}${atMax ? ' (MAX)' : ''}`,
+        railWidth: rw.width.toFixed(1),
+        knobCenter: knobCenter.toFixed(1),
+        knobRight: kw.right.toFixed(1),
+        fillRight: fillRight.toFixed(1),
+        fillOverflowPastKnobCenter: gap.toFixed(1),
+        fillStyle: fillWidth
+    };
+}
+
+const out = document.getElementById('out');
+const results = [];
+for (const levelsCount of [2, 3, 4, 5]) {
+    for (let i = 0; i < levelsCount; i++) {
+        results.push(render(i, levelsCount));
+    }
+}
+out.textContent = JSON.stringify(results, null, 2);
+</script>
+</body>
+</html>
