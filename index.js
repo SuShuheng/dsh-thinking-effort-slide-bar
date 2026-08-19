@@ -17,20 +17,20 @@ window.__ModuleLoader__.load({
 }
 .dsh-es-trigger {
     min-width: 0;
-    max-width: 220px;
-    height: 28px;
+    max-width: 200px;
+    height: 26px;
     color: var(--dsw-alias-label-secondary);
     cursor: pointer;
     background: 0 0;
     border: none;
-    border-radius: 24px;
+    border-radius: 22px;
     outline: none;
     align-items: center;
-    gap: 4px;
-    padding: 0 4px 0 8px;
-    font-size: 13px;
+    gap: 3px;
+    padding: 0 3px 0 6px;
+    font-size: 12px;
     font-weight: 500;
-    line-height: 20px;
+    line-height: 18px;
     display: flex;
 }
 .dsh-es-trigger:hover:not(:disabled) {
@@ -65,15 +65,15 @@ window.__ModuleLoader__.load({
     z-index: 9999;
     border: 1px solid var(--dsw-alias-border-inverted);
     background: var(--dsw-specific-menu);
-    width: min(280px, calc(100vw - 32px));
-    max-height: min(440px, calc(100vh - 96px));
+    width: min(240px, calc(100vw - 32px));
+    max-height: min(380px, calc(100vh - 96px));
     box-shadow: var(--dsw-shadow-lv3);
     color: var(--dsw-alias-label-primary);
     --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
     --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
-    border-radius: 12px;
+    border-radius: 10px;
     flex-direction: column;
-    padding: 4px;
+    padding: 3px;
     display: flex;
     position: absolute;
     bottom: calc(100% + 8px);
@@ -85,18 +85,18 @@ window.__ModuleLoader__.load({
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
     border: none;
     background: 0 0;
     color: inherit;
     font: inherit;
     text-align: left;
-    border-radius: 8px;
-    padding: 6px 8px;
+    border-radius: 6px;
+    padding: 4px 6px;
     cursor: pointer;
-    font-size: 13px;
-    line-height: 20px;
+    font-size: 12px;
+    line-height: 18px;
     color: var(--dsw-alias-label-secondary);
 }
 .dsh-es-modelRow:hover {
@@ -105,7 +105,7 @@ window.__ModuleLoader__.load({
 .dsh-es-modelRowLabel {
     color: var(--dsw-alias-label-tertiary);
     flex: none;
-    font-size: 12px;
+    font-size: 11px;
 }
 .dsh-es-modelRowValue {
     text-overflow: ellipsis;
@@ -119,7 +119,7 @@ window.__ModuleLoader__.load({
     overflow-y: auto;
     min-height: 0;
     flex: 1 1 auto;
-    border-radius: 8px;
+    border-radius: 6px;
     margin: 0 2px;
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -133,15 +133,15 @@ window.__ModuleLoader__.load({
     z-index: 10000;
     border: 1px solid var(--dsw-alias-border-inverted);
     background: var(--dsw-specific-menu);
-    width: min(280px, calc(100vw - 32px));
-    max-height: min(320px, calc(100vh - 96px));
+    width: min(220px, calc(100vw - 32px));
+    max-height: min(240px, calc(100vh - 96px));
     box-shadow: var(--dsw-shadow-lv3);
     color: var(--dsw-alias-label-primary);
     --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
     --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
-    border-radius: 12px;
+    border-radius: 10px;
     flex-direction: column;
-    padding: 4px;
+    padding: 3px;
     display: flex;
     overflow: hidden;
     animation: dsh-es-pop .12s ease-out;
@@ -155,26 +155,26 @@ window.__ModuleLoader__.load({
 }
 .dsh-es-menuGroup {
     color: var(--dsw-alias-label-tertiary);
-    padding: 8px 10px 2px;
-    font-size: 11px;
-    line-height: 16px;
+    padding: 6px 8px 2px;
+    font-size: 10px;
+    line-height: 14px;
 }
 .dsh-es-menuItem {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
     border: none;
     background: 0 0;
     color: inherit;
     font: inherit;
     text-align: left;
-    border-radius: 8px;
-    padding: 6px 8px;
+    border-radius: 6px;
+    padding: 4px 6px;
     cursor: pointer;
-    font-size: 13px;
-    line-height: 20px;
+    font-size: 12px;
+    line-height: 18px;
 }
 .dsh-es-menuItem:hover {
     background: var(--dsw-alias-interactive-bg-hover);
@@ -195,47 +195,47 @@ window.__ModuleLoader__.load({
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     color: var(--dsw-alias-label-tertiary);
 }
 .dsh-es-menuItemTip {
     z-index: 10001;
     position: fixed;
     width: max-content;
-    max-width: 220px;
-    padding: 6px 8px;
+    max-width: 200px;
+    padding: 5px 6px;
     border: 1px solid var(--dsw-alias-border-inverted);
-    border-radius: 8px;
+    border-radius: 6px;
     background: var(--dsw-specific-menu);
     box-shadow: var(--dsw-shadow-lv3);
     color: var(--dsw-alias-label-primary);
-    font-size: 12px;
-    line-height: 16px;
+    font-size: 11px;
+    line-height: 15px;
     white-space: normal;
     pointer-events: none;
 }
 .dsh-es-menuItemDesc {
     color: var(--dsw-alias-label-caption);
-    font-size: 12px;
-    line-height: 16px;
+    font-size: 11px;
+    line-height: 15px;
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
 }
 .dsh-es-menuStatus, .dsh-es-menuEmpty {
     color: var(--dsw-alias-label-tertiary);
-    padding: 10px;
-    font-size: 13px;
-    line-height: 20px;
+    padding: 8px;
+    font-size: 12px;
+    line-height: 18px;
 }
 .dsh-es-menuError {
     background: var(--dsw-alias-interactive-bg-hover-danger);
     color: var(--dsw-alias-state-error-primary);
-    border-radius: 8px;
-    margin: 4px;
-    padding: 7px 8px;
-    font-size: 12px;
+    border-radius: 6px;
+    margin: 3px;
+    padding: 5px 6px;
+    font-size: 11px;
     line-height: 18px;
 }
 .dsh-es-menuDivider {
@@ -245,7 +245,7 @@ window.__ModuleLoader__.load({
     flex: none;
 }
 .dsh-es-sliderWrap {
-    padding: 4px 10px 6px;
+    padding: 3px 8px 5px;
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -255,9 +255,9 @@ window.__ModuleLoader__.load({
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    font-size: 12px;
-    line-height: 18px;
+    gap: 10px;
+    font-size: 11px;
+    line-height: 16px;
     color: var(--dsw-alias-label-secondary);
 }
 .dsh-es-sliderHead strong {
@@ -266,14 +266,14 @@ window.__ModuleLoader__.load({
 }
 .dsh-es-sliderRail {
     position: relative;
-    height: 24px;
-    margin: 10px 0 12px;
+    height: 20px;
+    margin: 8px 0 10px;
 }
 .dsh-es-sliderGroove {
     position: absolute;
     inset: 0;
     overflow: hidden;
-    border-radius: 12px;
+    border-radius: 10px;
     pointer-events: none;
 }
 .dsh-es-sliderTrack, .dsh-es-sliderFill {
@@ -281,7 +281,7 @@ window.__ModuleLoader__.load({
     top: 0;
     bottom: 0;
     left: 0;
-    border-radius: 12px;
+    border-radius: 10px;
     pointer-events: none;
 }
 .dsh-es-sliderTrack {
@@ -308,9 +308,9 @@ window.__ModuleLoader__.load({
     position: absolute;
     z-index: 4;
     top: 50%;
-    width: 28px;
-    height: 28px;
-    margin-left: -14px;
+    width: 24px;
+    height: 24px;
+    margin-left: -12px;
     border-radius: 50%;
     background: #ffffff;
     box-shadow: 0 1px 3px rgb(0 0 0 / 22%);
@@ -322,17 +322,17 @@ window.__ModuleLoader__.load({
     position: absolute;
     z-index: 2;
     top: 0;
-    right: 14px;
+    right: 12px;
     bottom: 0;
-    left: 14px;
+    left: 12px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     pointer-events: none;
 }
 .dsh-es-sliderTick {
-    width: 4px;
-    height: 4px;
+    width: 3px;
+    height: 3px;
     border-radius: 50%;
     background: rgb(255 255 255 / 48%);
 }
@@ -359,17 +359,17 @@ window.__ModuleLoader__.load({
     opacity: .6;
 }
 .dsh-es-slider::-webkit-slider-runnable-track {
-    height: 24px;
+    height: 20px;
     border: none;
-    border-radius: 12px;
+    border-radius: 10px;
     background: transparent;
 }
 .dsh-es-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     box-sizing: border-box;
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     margin-top: -2px;
     border-radius: 50%;
     background: transparent;
@@ -378,15 +378,15 @@ window.__ModuleLoader__.load({
     cursor: pointer;
 }
 .dsh-es-slider::-moz-range-track, .dsh-es-slider::-moz-range-progress {
-    height: 24px;
+    height: 20px;
     border: none;
-    border-radius: 12px;
+    border-radius: 10px;
     background: transparent;
 }
 .dsh-es-slider::-moz-range-thumb {
     box-sizing: border-box;
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     background: transparent;
     border: none;
