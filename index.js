@@ -266,14 +266,14 @@ window.__ModuleLoader__.load({
 }
 .dsh-es-sliderRail {
     position: relative;
-    height: 20px;
+    height: 26px;
     margin: 8px 0 10px;
 }
 .dsh-es-sliderGroove {
     position: absolute;
     inset: 0;
     overflow: hidden;
-    border-radius: 10px;
+    border-radius: 13px;
     pointer-events: none;
 }
 .dsh-es-sliderTrack, .dsh-es-sliderFill {
@@ -281,7 +281,7 @@ window.__ModuleLoader__.load({
     top: 0;
     bottom: 0;
     left: 0;
-    border-radius: 10px;
+    border-radius: 13px;
     pointer-events: none;
 }
 .dsh-es-sliderTrack {
@@ -308,49 +308,53 @@ window.__ModuleLoader__.load({
     position: absolute;
     z-index: 4;
     top: 50%;
-    width: 24px;
-    height: 24px;
-    margin-left: -12px;
-    border-radius: 50%;
-    background: #ffffff;
-    box-shadow: 0 1px 3px rgb(0 0 0 / 22%);
+    width: 30px;
+    height: 30px;
+    margin-left: -15px;
     pointer-events: none;
     transform: translateY(-50%);
-    transition: left .315s ease, transform .12s ease, box-shadow .12s ease;
+    transition: left .315s ease;
 }
-.dsh-es-sliderKnobActive {
-    transform: translateY(-50%) scale(1.2) !important;
-    box-shadow: 0 4px 12px rgb(0 0 0 / 32%) !important;
+.dsh-es-sliderKnobFace {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: none;
 }
 .dsh-es-sliderTicks {
     position: absolute;
     z-index: 2;
     top: 0;
-    right: 12px;
+    right: 15px;
     bottom: 0;
-    left: 12px;
+    left: 15px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     pointer-events: none;
 }
 .dsh-es-sliderTick {
-    width: 3px;
-    height: 3px;
+    width: 4px;
+    height: 4px;
     border-radius: 50%;
-    background: rgb(255 255 255 / 48%);
+    background: rgb(255 255 255 / 38%);
 }
 .dsh-es-sliderTickActive {
-    background: rgb(255 255 255 / 48%);
+    background: rgb(255 255 255 / 38%);
 }
 .dsh-es-slider {
     -webkit-appearance: none;
     appearance: none;
     position: absolute;
     z-index: 3;
-    inset: 0;
+    top: 50%;
+    right: 0;
+    bottom: auto;
+    left: 0;
     width: 100%;
-    height: 24px;
+    height: 38px;
+    transform: translateY(-50%);
     margin: 0;
     background: transparent;
     cursor: pointer;
@@ -363,17 +367,17 @@ window.__ModuleLoader__.load({
     opacity: .6;
 }
 .dsh-es-slider::-webkit-slider-runnable-track {
-    height: 20px;
+    height: 26px;
     border: none;
-    border-radius: 10px;
+    border-radius: 13px;
     background: transparent;
 }
 .dsh-es-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     box-sizing: border-box;
-    width: 24px;
-    height: 24px;
+    width: 30px;
+    height: 30px;
     margin-top: -2px;
     border-radius: 50%;
     background: transparent;
@@ -382,15 +386,15 @@ window.__ModuleLoader__.load({
     cursor: pointer;
 }
 .dsh-es-slider::-moz-range-track, .dsh-es-slider::-moz-range-progress {
-    height: 20px;
+    height: 26px;
     border: none;
-    border-radius: 10px;
+    border-radius: 13px;
     background: transparent;
 }
 .dsh-es-slider::-moz-range-thumb {
     box-sizing: border-box;
-    width: 24px;
-    height: 24px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     background: transparent;
     border: none;
@@ -524,7 +528,6 @@ window.__ModuleLoader__.load({
             const rootRef = react.useRef(null);
             const triggerRef = react.useRef(null);
             const panelRef = react.useRef(null);
-            const knobRef = react.useRef(null);
             const hasImages = (useSession ?? defaultUseSession)(snapshotHasImage);
 
             react.useEffect(() => {
@@ -615,14 +618,7 @@ window.__ModuleLoader__.load({
                 setDraft(Number(event.currentTarget.value));
             };
 
-            // Grow the knob while the slider is pressed. Direct DOM class
-            // toggling via ref — no extra state, no effect callbacks.
-            const pressKnob = () => {
-                if (knobRef.current) knobRef.current.classList.add("dsh-es-sliderKnobActive");
-            };
-            const releaseKnob = () => {
-                if (knobRef.current) knobRef.current.classList.remove("dsh-es-sliderKnobActive");
-            };
+            // CSS hover on .dsh-es-sliderRail now handles knob scaling.
 
             // Commit the live thumb value on release. Keep the local pin until
             // the store catches up so the knob does not snap back.
@@ -721,7 +717,7 @@ window.__ModuleLoader__.load({
             const maxIndex = levels.length - 1;
             const fillPct = levels.length <= 1 ? 100 : Math.round((displayedIndex / maxIndex) * 100);
             const atMax = displayedIndex >= levels.length - 1;
-            const thumbRadius = 14;
+            const thumbRadius = 15;
             const travel = `calc(${fillPct}% + ${Math.round(thumbRadius - (thumbRadius * 2 * fillPct) / 100)}px)`;
             const knobLeft = atMax || levels.length <= 1
                 ? `calc(100% - ${thumbRadius}px)`
@@ -729,7 +725,7 @@ window.__ModuleLoader__.load({
                     ? `${thumbRadius}px`
                     : travel;
             // Fill always ends at the knob center; at max that is
-            // calc(100% - 14px), never 100%, so no color bleeds past the knob.
+            // calc(100% - 15px), never 100%, so no color bleeds past the knob.
             const fillWidth = fillPct <= 0
                 ? "0px"
                 : travel;
@@ -756,12 +752,15 @@ window.__ModuleLoader__.load({
                                 style: { width: fillWidth }
                             }, react.createElement("div", { className: "dsh-es-sliderBloom" }))
                         ),
-                        react.createElement("div", {
-                            ref: knobRef,
-                            className: "dsh-es-sliderKnob",
-                            "aria-hidden": true,
-                            style: { left: knobLeft }
-                        }),
+                        react.createElement(
+                            "div",
+                            {
+                                className: "dsh-es-sliderKnob",
+                                "aria-hidden": true,
+                                style: { left: knobLeft }
+                            },
+                            react.createElement("div", { className: "dsh-es-sliderKnobFace" })
+                        ),
                         react.createElement(
                             "div",
                             { className: "dsh-es-sliderTicks", "aria-hidden": true },
@@ -780,20 +779,8 @@ window.__ModuleLoader__.load({
                             disabled: locked,
                             onInput: updateDraft,
                             onChange: updateDraft,
-                            onPointerDown: pressKnob,
-                            onPointerUp: releaseKnob,
-                            onPointerCancel: releaseKnob,
-                            onMouseDown: pressKnob,
-                            onMouseUp: (event) => {
-                                releaseKnob();
-                                commitEffort(event);
-                            },
-                            onTouchStart: pressKnob,
-                            onTouchEnd: (event) => {
-                                releaseKnob();
-                                commitEffort(event);
-                            },
-                            onTouchCancel: releaseKnob,
+                            onMouseUp: commitEffort,
+                            onTouchEnd: commitEffort,
                             onKeyUp: onSliderKeyUp,
                             "aria-label": "推理强度"
                         })
