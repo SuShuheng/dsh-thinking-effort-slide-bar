@@ -2,6 +2,10 @@
 
 将 DSH Web 聊天输入区原有的模型/推理强度选择入口替换为推理强度滑动条。滑块会调用 DSH 的 `modelDirectories` 服务提交当前模型的 `reasoningEffort`，因此设置会作用于后续请求。
 
+## 屏幕截图
+
+![](screenshots/1.png)
+
 ## 要求
 
 - DSH `0.1.0-rc.6` 或兼容的 Web profile。
