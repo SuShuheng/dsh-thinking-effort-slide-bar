@@ -6,6 +6,9 @@
 
 ![](screenshots/1.png)
 
+
+![](screenshots/2.png)
+
 ## 要求
 
 - DSH `0.1.0-rc.6` 或兼容的 Web profile。
