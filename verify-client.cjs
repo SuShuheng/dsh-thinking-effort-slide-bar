@@ -185,15 +185,15 @@ if (!captured) throw new Error("client module did not register");
 // 0. Styles must be injected at module load (original bundles do this at top level)
 const styleTag = styleTags.find((tag) => tag.dataset.pluginCss === "dsh-effort-switcher/seat.css");
 if (!styleTag) throw new Error("style tag not injected at module load");
-if (!styleTag.textContent.includes("border-radius: 24px")) throw new Error("trigger radius missing from injected css");
+if (!styleTag.textContent.includes("border-radius: 22px")) throw new Error("trigger radius missing from injected css");
 if (!styleTag.textContent.includes("--dsw-alias-label-secondary")) throw new Error("dsh tokens missing from injected css");
 if (!styleTag.textContent.includes("scrollbar-width: none")) throw new Error("scrollbar must be hidden");
 if (!styleTag.textContent.includes("::-webkit-scrollbar")) throw new Error("webkit scrollbar hide rule missing");
 if (!styleTag.textContent.includes("-webkit-slider-thumb")) throw new Error("slider thumb style missing");
 if (!styleTag.textContent.includes("::-moz-range-progress")) throw new Error("firefox slider progress style missing");
 if (!styleTag.textContent.includes("dsh-es-pop")) throw new Error("pop animation missing from css");
-if (!styleTag.textContent.includes("height: 24px")) throw new Error("slider track must be 24px tall");
-if (!styleTag.textContent.includes("width: 28px")) throw new Error("slider thumb must be 28px wide");
+if (!styleTag.textContent.includes("height: 26px")) throw new Error("slider track must be 26px tall");
+if (!styleTag.textContent.includes("width: 30px")) throw new Error("slider thumb must be 30px wide");
 if (!styleTag.textContent.includes(".dsh-es-sliderKnob")) throw new Error("custom thumb knob missing");
 if (!styleTag.textContent.includes("transition: left .315s ease")) throw new Error("thumb must ease between notches at the last-notch pace");
 if (!styleTag.textContent.includes("transition: width .315s ease")) {
@@ -205,7 +205,7 @@ if (!styleTag.textContent.includes(".dsh-es-sliderBloom")) {
 if (!styleTag.textContent.includes("transition: opacity .315s ease")) {
     throw new Error("bloom color fade must be slower than the thumb travel");
 }
-if ((styleTag.textContent.match(/background: rgb\(255 255 255 \/ 48%\)/g) || []).length < 2) {
+if ((styleTag.textContent.match(/background: rgb\(255 255 255 \/ 38%\)/g) || []).length < 2) {
     throw new Error("inactive and active slider dots must share the same subdued style");
 }
 if (!styleTag.textContent.includes("background: #4c8dff")) throw new Error("fill must use the reference blue");
@@ -371,7 +371,7 @@ if (find(deepseekItem, (n) => n.props?.className === "dsh-es-menuItemNotice")) {
     throw new Error("image notice must stay hidden until the current session has images");
 }
 
-function renderWithImages() {
+function renderWithDraftImages() {
     beginRender();
     return registered.component({
         locked: false,
@@ -379,34 +379,69 @@ function renderWithImages() {
         directory: face.directory,
         load: face.load,
         select: face.select,
-        useSession: (select) => select({
-            nodes: [{ kind: "user", content: [{ type: "image", attachment: {} }] }],
-            queue: [],
-            partial: null
+        useInput: (select) => select({
+            draft: "",
+            imageIds: ["draft-img-1"],
+            draftRev: 0,
+            phase: "plain",
+            occurrences: [],
+            queue: []
         })
     });
 }
 
-tree = renderWithImages();
+// Ensure menu is open for image test: render, check, open if needed
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+let menuForImageTest = find(tree, (n) => n.props?.className === "dsh-es-menu");
+if (!menuForImageTest) {
+    // Menu is closed, open it via trigger
+    tree.children[0].props.onClick();
+    beginRender();
+    tree = registered.component({
+        locked: false,
+        available: face.available,
+        directory: face.directory,
+        load: face.load,
+        select: face.select
+    });
+    menuForImageTest = find(tree, (n) => n.props?.className === "dsh-es-menu");
+    if (!menuForImageTest) throw new Error("menu must open for image test");
+}
+// Ensure secondary model menu is open
+let modelMenuForImageTest = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
+if (!modelMenuForImageTest) {
+    const modelRowForImageTest = find(menuForImageTest, (n) => n.props?.className === "dsh-es-modelRow");
+    if (!modelRowForImageTest) throw new Error("model row must be present for image test");
+    modelRowForImageTest.props.onClick();
+}
+// Now render with draft images (menus stay open via mock state)
+tree = renderWithDraftImages();
 const imagedMenu = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
 const imagedVision = find(imagedMenu, (n) => n.props?.type === "button" && text(n).includes("DeepSeek-V4-Flash-Vision-Exp"));
-if (!imagedVision) throw new Error("DeepSeek Flash Vision Exp model missing after image session render");
+if (!imagedVision) throw new Error("DeepSeek Flash Vision Exp model missing after draft image render");
 if (find(imagedVision, (n) => n.props?.className === "dsh-es-menuItemNotice")) {
     throw new Error("DeepSeek Flash Vision Exp must not show an image incompatibility notice");
 }
 const imagedDeepseek = find(imagedMenu, (n) => n.props?.type === "button" && text(n).includes("DeepSeek-V4-Flash"));
-if (!imagedDeepseek) throw new Error("DeepSeek official model missing after image session render");
+if (!imagedDeepseek) throw new Error("DeepSeek official model missing after draft image render");
 const deepseekNotice = find(imagedDeepseek, (n) => n.props?.className === "dsh-es-menuItemNotice");
 if (!deepseekNotice || typeof deepseekNotice.props.onMouseEnter !== "function") {
-    throw new Error("text-only model must show a hoverable notice icon once the session has images");
+    throw new Error("text-only model must show a hoverable notice icon once draft has images");
 }
 deepseekNotice.props.onMouseEnter({
     currentTarget: { getBoundingClientRect: () => ({ right: 120, bottom: 80 }) }
 });
-tree = renderWithImages();
+tree = renderWithDraftImages();
 const hoverTip = find(tree, (n) => n.props?.className === "dsh-es-menuItemTip");
-if (!hoverTip || !text(hoverTip).includes("当前会话已有图片")) {
-    throw new Error("hover tip must explain the image incompatibility only after the session has images");
+if (!hoverTip || !text(hoverTip).includes("当前草稿包含图片")) {
+    throw new Error("hover tip must explain the image incompatibility only when draft has images");
 }
 
 // 10. Slider: the native input sits above the reference-style rail, fill,
@@ -420,7 +455,7 @@ if (Number(slider.props.value) !== 0) throw new Error("slider value should map l
 if (sliderFill.props.style.width !== "0px") throw new Error("first notch fill must sit fully under the thumb");
 const sliderKnob = find(sliderWrap2, (n) => n.props?.className === "dsh-es-sliderKnob");
 if (!sliderKnob) throw new Error("custom slider knob missing");
-if (sliderKnob.props.style.left !== "14px") throw new Error("first notch knob must stay inside the rail");
+if (sliderKnob.props.style.left !== "15px") throw new Error("first notch knob must stay inside the rail");
 // Drag to the penultimate notch: it must remain fully blue, with no purple.
 slider.props.onInput({ currentTarget: { value: "1" } });
 beginRender();
@@ -451,9 +486,9 @@ tree = registered.component({
 const slider3 = findRange(tree);
 const fill3 = findSliderFill(tree);
 if (Number(slider3.props.value) !== 2) throw new Error("draft must move the thumb without committing");
-if (fill3.props.style.width !== "100%") throw new Error("terminal fill must span the full rail");
+if (fill3.props.style.width !== "calc(100% + -15px)") throw new Error("terminal fill must span the full rail");
 const knob3 = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
-if (!knob3 || knob3.props.style.left !== "calc(100% - 14px)") {
+if (!knob3 || knob3.props.style.left !== "calc(100% - 15px)") {
     throw new Error("last notch knob must stay inside the rail");
 }
 if (!String(fill3.props.className).includes("dsh-es-sliderFillMax")) {

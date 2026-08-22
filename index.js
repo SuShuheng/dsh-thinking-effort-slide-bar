@@ -456,7 +456,7 @@ window.__ModuleLoader__.load({
         const ICON_WARNING_BAR = "M6.3002 3.32843L7.69986 3.32843L7.69986 7.79657H6.3002L6.3002 3.32843Z";
         const ICON_WARNING_DOT = "M6.3002 9.01935H7.69986V10.6711H6.3002V9.01935Z";
         const ICON_WARNING_RING = "M12.6328 6.99976C12.6328 3.88874 10.111 1.36694 7 1.36694C3.88899 1.36695 1.3672 3.88875 1.36719 6.99976C1.36719 10.1108 3.88899 12.6326 7 12.6326C10.111 12.6326 12.6328 10.1108 12.6328 6.99976ZM13.8582 6.99976C13.8582 10.7873 10.7876 13.8579 7 13.8579C3.21244 13.8579 0.141846 10.7873 0.141846 6.99976C0.141857 3.2122 3.21245 0.141612 7 0.141602C10.7876 0.141602 13.8581 3.21219 13.8582 6.99976Z";
-        const IMAGE_BLOCK_REASON = "当前会话已有图片，此模型不支持图片输入";
+        const IMAGE_BLOCK_REASON = "当前草稿包含图片，此模型不支持图片输入";
         const DEEPSEEK_FLASH_VISION_EXP_MODEL = "deepseek-v4-flash-vision-exp";
 
         const chevronIcon = (path, className) => react.createElement(
@@ -477,43 +477,11 @@ window.__ModuleLoader__.load({
             return provider === "deepseek-official" && model.id !== DEEPSEEK_FLASH_VISION_EXP_MODEL;
         }
 
-        function defaultUseSession(select) {
-            return select({ nodes: [], queue: [], partial: null });
+        function defaultUseInput(select) {
+            return select({ draft: "", imageIds: [], draftRev: 0, phase: "plain", occurrences: [], queue: [] });
         }
 
-        // Host image walk: typed content plus nested tool-result blocks.
-        function contentHasImage(content) {
-            if (!Array.isArray(content)) return false;
-            for (const block of content) {
-                if (block?.type === "image") return true;
-                if (block?.type === "tool-result" && contentHasImage(block.content)) return true;
-            }
-            return false;
-        }
-
-        // Assistant UI blocks use kind; raw content still uses type.
-        function assistantBlocksHaveImage(blocks) {
-            if (!Array.isArray(blocks)) return false;
-            for (const block of blocks) {
-                if (block?.kind === "image" || block?.type === "image") return true;
-                if (block?.type === "tool-result" && contentHasImage(block.content)) return true;
-            }
-            return false;
-        }
-
-        // Durable history, queue, and in-flight assistant output all count.
-        function snapshotHasImage(snapshot) {
-            if (snapshot == null) return false;
-            if ((snapshot.queue ?? []).some((item) => contentHasImage(item.content))) return true;
-            if (assistantBlocksHaveImage(snapshot.partial?.blocks)) return true;
-            for (const node of snapshot.nodes ?? []) {
-                if (contentHasImage(node.content)) return true;
-                if (assistantBlocksHaveImage(node.blocks)) return true;
-            }
-            return false;
-        }
-
-        function EffortSliderSeat({ locked, available, directory, load, select, useSession }) {
+        function EffortSliderSeat({ locked, available, directory, load, select, useSession, useInput }) {
             const state = react.useSyncExternalStore(
                 (listener) => directory.subscribe(listener),
                 () => directory.getSnapshot()
@@ -530,7 +498,8 @@ window.__ModuleLoader__.load({
             const rootRef = react.useRef(null);
             const triggerRef = react.useRef(null);
             const panelRef = react.useRef(null);
-            const hasImages = (useSession ?? defaultUseSession)(snapshotHasImage);
+            const inputSnapshot = (useInput ?? defaultUseInput)((s) => s);
+            const draftHasImages = inputSnapshot !== null && inputSnapshot !== undefined && (inputSnapshot.imageIds?.length ?? 0) > 0;
 
             react.useEffect(() => {
                 if (available) {
@@ -680,7 +649,7 @@ window.__ModuleLoader__.load({
                         group.models.map((model) => {
                             const active = state.current?.provider === group.id && state.current.model === model.id;
                             const failedReason = blockedModels[modelKey(group.id, model.id)];
-                            const imageBlocked = hasImages && knownTextOnlyModel(group.id, model);
+                            const imageBlocked = draftHasImages && knownTextOnlyModel(group.id, model);
                             const warned = failedReason !== undefined || imageBlocked;
                             const blocked = failedReason !== undefined;
                             const noticeReason = failedReason ?? (imageBlocked ? IMAGE_BLOCK_REASON : undefined);
