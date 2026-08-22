@@ -457,6 +457,7 @@ window.__ModuleLoader__.load({
         const ICON_WARNING_DOT = "M6.3002 9.01935H7.69986V10.6711H6.3002V9.01935Z";
         const ICON_WARNING_RING = "M12.6328 6.99976C12.6328 3.88874 10.111 1.36694 7 1.36694C3.88899 1.36695 1.3672 3.88875 1.36719 6.99976C1.36719 10.1108 3.88899 12.6326 7 12.6326C10.111 12.6326 12.6328 10.1108 12.6328 6.99976ZM13.8582 6.99976C13.8582 10.7873 10.7876 13.8579 7 13.8579C3.21244 13.8579 0.141846 10.7873 0.141846 6.99976C0.141857 3.2122 3.21245 0.141612 7 0.141602C10.7876 0.141602 13.8581 3.21219 13.8582 6.99976Z";
         const IMAGE_BLOCK_REASON = "当前会话已有图片，此模型不支持图片输入";
+        const DEEPSEEK_FLASH_VISION_EXP_MODEL = "deepseek-v4-flash-vision-exp";
 
         const chevronIcon = (path, className) => react.createElement(
             "svg",
@@ -472,8 +473,8 @@ window.__ModuleLoader__.load({
             react.createElement("path", { d: ICON_WARNING_RING, fill: "currentColor" })
         );
 
-        function knownTextOnlyModel(provider) {
-            return provider === "deepseek-official";
+        function knownTextOnlyModel(provider, model) {
+            return provider === "deepseek-official" && model.id !== DEEPSEEK_FLASH_VISION_EXP_MODEL;
         }
 
         function defaultUseSession(select) {
@@ -522,6 +523,7 @@ window.__ModuleLoader__.load({
             const [modelsOpen, setModelsOpen] = react.useState(false);
             const [blockedModels, setBlockedModels] = react.useState({});
             const [hoveredNotice, setHoveredNotice] = react.useState(null);
+            const [initialLoading, setInitialLoading] = react.useState(true);
             const [draft, setDraft] = react.useState(-1);
             const [pendingIndex, setPendingIndex] = react.useState(-1);
             const [panelHeight, setPanelHeight] = react.useState(0);
@@ -531,7 +533,9 @@ window.__ModuleLoader__.load({
             const hasImages = (useSession ?? defaultUseSession)(snapshotHasImage);
 
             react.useEffect(() => {
-                if (available) load();
+                if (available) {
+                    load().then(() => setInitialLoading(false), () => setInitialLoading(false));
+                }
             }, [available, load]);
 
             react.useEffect(() => {
@@ -655,10 +659,20 @@ window.__ModuleLoader__.load({
             };
 
             // Secondary menu: model picker, shown when the model row is clicked.
-            const modelList = state.status === "loading" && state.groups.length === 0
+            if (state.groups.length === 0 && state.status !== "loading" && !initialLoading) {
+                console.warn("[effort-switcher] no available models", {
+                    status: state.status,
+                    initialLoading,
+                    error: state.error,
+                    current: state.current
+                });
+            }
+            const modelList = (state.status === "loading" || initialLoading) && state.groups.length === 0
                 ? react.createElement("div", { className: "dsh-es-menuStatus" }, "加载中…")
                 : state.groups.length === 0
-                    ? react.createElement("div", { className: "dsh-es-menuEmpty" }, "没有可用的模型。")
+                    ? state.error
+                        ? react.createElement("div", { className: "dsh-es-menuError" }, state.error)
+                        : react.createElement("div", { className: "dsh-es-menuEmpty" }, "没有可用的模型。")
                     : state.groups.map((group) => react.createElement(
                         react.Fragment,
                         { key: group.id },
@@ -666,7 +680,7 @@ window.__ModuleLoader__.load({
                         group.models.map((model) => {
                             const active = state.current?.provider === group.id && state.current.model === model.id;
                             const failedReason = blockedModels[modelKey(group.id, model.id)];
-                            const imageBlocked = hasImages && knownTextOnlyModel(group.id);
+                            const imageBlocked = hasImages && knownTextOnlyModel(group.id, model);
                             const warned = failedReason !== undefined || imageBlocked;
                             const blocked = failedReason !== undefined;
                             const noticeReason = failedReason ?? (imageBlocked ? IMAGE_BLOCK_REASON : undefined);
@@ -901,11 +915,21 @@ window.__ModuleLoader__.load({
                     inject: (sessionId) => {
                         const directory = models.directoryFor(sessionId);
                         const available = sessions.subagentAddress(sessionId) === void 0;
+                        const snapshot = directory.store?.getSnapshot?.();
+                        console.log("[effort-switcher] directory", {
+                            sessionId,
+                            available,
+                            status: snapshot?.status,
+                            groupCount: snapshot?.groups?.length ?? 0,
+                            error: snapshot?.error ?? null,
+                            current: snapshot?.current ?? null
+                        });
                         return {
                             available,
                             directory: directory.store,
                             load: () => {
-                                if (available) directory.load().catch(() => {});
+                                if (available) return directory.load().catch(() => {});
+                                return Promise.resolve();
                             },
                             select: (selection) => available ? directory.select(selection).then(() => true, () => false) : Promise.resolve(false)
                         };

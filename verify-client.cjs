@@ -84,6 +84,10 @@ const snapshot = {
             id: "DeepSeek-V4-Pro",
             name: "DeepSeek-V4-Pro",
             description: "官方 DeepSeek 路由"
+        }, {
+            id: "deepseek-v4-flash-vision-exp",
+            name: "DeepSeek-V4-Flash-Vision-Exp",
+            description: "官方 DeepSeek 视觉路由"
         }]
     }, {
         id: "xiaomi",
@@ -385,6 +389,11 @@ function renderWithImages() {
 
 tree = renderWithImages();
 const imagedMenu = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
+const imagedVision = find(imagedMenu, (n) => n.props?.type === "button" && text(n).includes("DeepSeek-V4-Flash-Vision-Exp"));
+if (!imagedVision) throw new Error("DeepSeek Flash Vision Exp model missing after image session render");
+if (find(imagedVision, (n) => n.props?.className === "dsh-es-menuItemNotice")) {
+    throw new Error("DeepSeek Flash Vision Exp must not show an image incompatibility notice");
+}
 const imagedDeepseek = find(imagedMenu, (n) => n.props?.type === "button" && text(n).includes("DeepSeek-V4-Flash"));
 if (!imagedDeepseek) throw new Error("DeepSeek official model missing after image session render");
 const deepseekNotice = find(imagedDeepseek, (n) => n.props?.className === "dsh-es-menuItemNotice");
