@@ -22,9 +22,14 @@
 
 ## 推理强度等级（settings.yaml 驱动）
 
-滑块的每个位置 = 当前模型在 Host 模型中暴露的 `reasoning.efforts`，按**从左到右递增**排列。该目录由官方 `session/modelCatalog` 从各适配器解析（如 `dsh-llm-pi-ai` 读取 `$DSH_HOME/settings.yaml` 中每个模型声明的 `reasoningEfforts`），因此**不同提供商/模型可以有完全不同的档位数与档位名**，例如 `DeepSeek-V4-Flash` 声明 4 档（Low/Medium/High/Max，对应截图），另一个模型只声明 2 档则滑块只有两个位置。
+约定：`reasoningEfforts` 写成 `{键名: 数值}`，其中**数值是固定词表** `none / low / medium / high / max`，**键名是用户自定义标签**。插件一律**按数值（id）判定档位与顺序，不按键名**：
 
-示例 `$DSH_HOME/settings.yaml`（`llm-pi-ai` 自定义网关）：
+- **固定顺序**：`none/off（不思考） < low < medium < high < max`。`off` 与 `none` 是同一档位：`off` 是键名，`none` 是传递的数值。
+- **前端显示名称固定为键名词汇**：`off / low / medium / high / max`（`none` 值显示为 `off`；即使目录里的 `name` 是用户自定义键名，也按此固定名展示）。
+- **任意组合**：以上 5 个数值的自由子集都能渲染为对应档数的滑块（2 档、3 档、4 档、5 档…），顺序始终按数值递增，与写入顺序无关。
+- **单档模式**：不支持推理调整的模型（无 reasoning 元数据 / `reasoningEfforts: false`）渲染**单个固定 `off` 档**（默认 = off，值为 none；只读、不提交）；只声明了唯一档位的模型同样显示一个只读位置。
+
+示例 `$DSH_HOME/settings.yaml`（`llm-pi-ai` 自定义网关，5 档含 off）：
 
 ```yaml
 llm-pi-ai:
@@ -38,18 +43,27 @@ llm-pi-ai:
         - id: DeepSeek-V4-Flash
           name: DeepSeek-V4-Flash
           reasoningEfforts:
-            low: low                   # key = 档位（选择器展示），value = 线上发送的拼写
+            off: none                  # 键名 off（前端显示固定名），数值 none（不思考）
+            low: low                   # 键名可为任意标签，数值决定档位
             medium: medium
             high: high
             max: max
 ```
 
+也支持任意子集，例如只声明两档：
+
+```yaml
+          reasoningEfforts:
+            off: none                  # 键名可自定义，例如 off/关闭/停止 → 值 none
+            max: max                   # 值 max 决定这是最右一档
+```
+
 行为约定：
 
-- 滑块档位 = 该模型声明的档位；拖动后提交 `reasoningEffort`（档位 id），由 Host 校验并作用于后续请求。
-- 未声明 `reasoningEfforts`、声明为 `false` 或适配器无推理元数据的模型 → 不显示滑块（只保留模型选择入口）。
+- 滑块档位 = 该模型声明的档位；拖动后提交 `reasoningEffort` = 档位**数值**（如 `none`、`max`），由 Host 校验并作用于后续请求。
+- 单档 `off`（值 none）：只读展示，不向 Host 提交任何 effort 变更。
 - 修改 `settings.yaml` 后 Host 目录会在 `settings/document-updated` 事件时刷新，重新打开面板即可看到新档位，无需重启 `dsh web`。
-- 插件不直接解析 `settings.yaml`：成品目录由 Host 权威解析，滑块只消费 `reasoning.efforts`，与官方 `/model` 弹窗及 Host 校验保持一致。
+- 插件不直接解析 `settings.yaml`：成品目录由 Host 权威解析，滑块只消费 `reasoning.efforts`（`id`=数值、`name`=用户键名），与官方 `/model` 弹窗及 Host 校验保持一致。
 
 ## 安装
 

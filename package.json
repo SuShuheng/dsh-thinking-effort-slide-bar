@@ -1,6 +1,6 @@
 {
   "name": "dsh-effort-switcher",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "DSH 插件：将对话输入区的模型/推理强度入口替换为推理强度滑动条（兼容官方最新 DSH 与 DSH Desktop）",
   "type": "module",
   "main": "host.js",

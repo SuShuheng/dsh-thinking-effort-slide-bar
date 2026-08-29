@@ -334,6 +334,10 @@ window.__ModuleLoader__.load({
     justify-content: space-between;
     pointer-events: none;
 }
+.dsh-es-sliderTicksSingle {
+    justify-content: flex-end;
+}
+
 .dsh-es-sliderTick {
     width: 4px;
     height: 4px;
@@ -430,9 +434,47 @@ window.__ModuleLoader__.load({
             document.head.appendChild(tag);
         }
 
+        // settings.yaml declares {用户键名: 固定数值}; the VALUE side is the
+        // fixed vocabulary none/low/medium/high/max and the KEY is only a
+        // user label. Level identity, order and matching therefore follow the
+        // VALUE (the effort id), never the user-chosen key (the name):
+        //   off and none are the same leftmost "no reasoning" notch,
+        //   escalation is none/off < low < medium < high < max.
+        const EFFORT_RANK = { none: 0, off: 0, low: 1, medium: 2, high: 3, max: 4 };
+        // Frontend display names are the FIXED key vocabulary; the none value
+        // renders as "off" (default = off / value none).
+        const EFFORT_LABEL = { none: "off", off: "off", low: "low", medium: "medium", high: "high", max: "max" };
+
+        function effortValue(id) {
+            return id === "off" ? "none" : id;
+        }
+
+        function effortRank(id) {
+            return EFFORT_RANK[id] === undefined ? undefined : EFFORT_RANK[id];
+        }
+
+        // Slider positions follow the fixed value vocabulary regardless of the
+        // order the host catalog or user keys use; unknown adapter-only levels
+        // (e.g. minimal/xhigh) keep their catalog order after the known ones.
+        function orderEfforts(levels) {
+            return levels.slice().sort((a, b) => {
+                const ra = effortRank(a.id);
+                const rb = effortRank(b.id);
+                if (ra === undefined && rb === undefined) return 0;
+                if (ra === undefined) return 1;
+                if (rb === undefined) return -1;
+                return ra - rb;
+            });
+        }
+
         function effortIndex(levels, current) {
-            const index = levels.findIndex((level) => level.id === current);
+            const tag = effortValue(current);
+            const index = levels.findIndex((level) => effortValue(level.id) === tag);
             return index >= 0 ? index : Math.floor((levels.length - 1) / 2);
+        }
+
+        function levelName(level) {
+            return EFFORT_LABEL[level.id] ?? level.name;
         }
 
         function modelKey(provider, model) {
@@ -458,6 +500,10 @@ window.__ModuleLoader__.load({
         const ICON_WARNING_RING = "M12.6328 6.99976C12.6328 3.88874 10.111 1.36694 7 1.36694C3.88899 1.36695 1.3672 3.88875 1.36719 6.99976C1.36719 10.1108 3.88899 12.6326 7 12.6326C10.111 12.6326 12.6328 10.1108 12.6328 6.99976ZM13.8582 6.99976C13.8582 10.7873 10.7876 13.8579 7 13.8579C3.21244 13.8579 0.141846 10.7873 0.141846 6.99976C0.141857 3.2122 3.21245 0.141612 7 0.141602C10.7876 0.141602 13.8581 3.21219 13.8582 6.99976Z";
         const IMAGE_BLOCK_REASON = "当前草稿包含图片，此模型不支持图片输入";
         const DEEPSEEK_FLASH_VISION_EXP_MODEL = "deepseek-v4-flash-vision-exp";
+        // Single-notch fallback for models without reasoning metadata: the
+        // slider still renders one fixed "off" notch (the "default" IS off;
+        // its value is none), display-only and never commits an effort.
+        const DEFAULT_LEVELS = [{ id: undefined, name: "off" }];
 
         const chevronIcon = (path, className) => react.createElement(
             "svg",
@@ -552,14 +598,21 @@ window.__ModuleLoader__.load({
                 ?? undefined;
             // Slider positions ARE this model's declarable reasoning levels, in
             // escalating left->right order. The host catalog materializes them from
-            // settings.yaml reasoningEfforts (llm-pi-ai per-model dict) through the
-            // adapter, so different providers/models get different level counts.
-            const levels = currentChoice?.model.reasoning?.efforts ?? [];
+            // settings.yaml reasoningEfforts (pi-ai per-model dict) or the adapter
+            // (deepseek Off/Low/High/Max); off/none is the LEFTMOST notch. Any
+            // subset of [off, low, medium, high, max] yields 2..5 notches, and a
+            // model that declares exactly one level renders one fixed notch.
+            const catalogLevels = currentChoice?.model.reasoning?.efforts ?? [];
+            // Models without reasoning metadata get the single "off" notch:
+            // display-only, never committed.
+            const levels = currentChoice === undefined
+                ? []
+                : catalogLevels.length > 0 ? orderEfforts(catalogLevels) : DEFAULT_LEVELS;
             const currentIndex = currentChoice === undefined ? -1 : effortIndex(levels, currentEffort);
             const currentLevel = currentChoice === undefined ? undefined : levels[currentIndex];
             const effortLabel = currentLevel === undefined
                 ? undefined
-                : currentLevel.name ?? currentEffort;
+                : levelName(currentLevel);
             const modelLabel = currentChoice === undefined
                 ? "选择模型"
                 : currentChoice.model.name;
@@ -703,8 +756,11 @@ window.__ModuleLoader__.load({
             const displayedIndex = draft >= 0 ? draft : pendingIndex >= 0 ? pendingIndex : currentIndex;
             const displayedLevel = levels[displayedIndex];
             const maxIndex = levels.length - 1;
-            const fillPct = levels.length <= 1 ? 100 : Math.round((displayedIndex / maxIndex) * 100);
-            const atMax = displayedIndex >= levels.length - 1;
+            const singleNotch = levels.length <= 1;
+            const fillPct = singleNotch ? 100 : Math.round((displayedIndex / maxIndex) * 100);
+            // A single notch is the only option and must never fake the
+            // terminal blue->purple bloom reserved for the real max level.
+            const atMax = !singleNotch && displayedIndex >= levels.length - 1;
             const thumbRadius = 15;
             const travel = `calc(${fillPct}% + ${Math.round(thumbRadius - (thumbRadius * 2 * fillPct) / 100)}px)`;
             const knobLeft = atMax || levels.length <= 1
@@ -726,7 +782,7 @@ window.__ModuleLoader__.load({
                         "div",
                         { className: "dsh-es-sliderHead" },
                         react.createElement("span", null, "推理强度"),
-                        react.createElement("strong", null, displayedLevel?.name ?? currentEffort)
+                        react.createElement("strong", null, displayedLevel === undefined ? currentEffort : levelName(displayedLevel))
                     ),
                     react.createElement(
                         "div",
@@ -751,7 +807,7 @@ window.__ModuleLoader__.load({
                         ),
                         react.createElement(
                             "div",
-                            { className: "dsh-es-sliderTicks", "aria-hidden": true },
+                            { className: levels.length <= 1 ? "dsh-es-sliderTicks dsh-es-sliderTicksSingle" : "dsh-es-sliderTicks", "aria-hidden": true },
                             levels.map((level, index) => react.createElement("span", {
                                 key: level.id,
                                 className: index <= displayedIndex ? "dsh-es-sliderTick dsh-es-sliderTickActive" : "dsh-es-sliderTick"
@@ -764,7 +820,7 @@ window.__ModuleLoader__.load({
                             max: Math.max(levels.length - 1, 0),
                             step: 1,
                             value: displayedIndex,
-                            disabled: locked,
+                            disabled: locked || singleNotch,
                             onInput: updateDraft,
                             onChange: updateDraft,
                             onMouseUp: commitEffort,
