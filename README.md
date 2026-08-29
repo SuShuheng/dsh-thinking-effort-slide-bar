@@ -153,9 +153,20 @@ README.md          安装与合规说明。
 - **拖动后未生效**：检查模型是否支持多个 reasoning effort 级别；仅有默认强度的模型会隐藏滑块。
 - **客户端启动报 `did not activate`**：说明 profile 缺少本插件声明的依赖包（如 `@deepseek-ai/dsh-client-ui-model-selection`），请确认 web-app bundle 与插件均已安装。
 
+### 已安装但仍显示官方模型入口（未出现滑块）
+
+「安装成功」不等于「客户端已生效」：bundle 行进入 Host 组合后，Web Client 启动图还要发现并激活客户端包，我们的 seat 才能在 slot 里胜出。按顺序排查：
+
+1. **完全重启 DSH Desktop**（托盘「退出」而非关窗；Windows 下确认没有残留 `dsh-desktop` 进程），再重新打开窗口并 **Ctrl+Shift+R 硬刷新**。插件必须在 Host 启动时进入 Loader 组合，仅刷新页面不会加载。
+2. 打开页面 DevTools Console（F12），搜索：
+   - `[effort-switcher] client activated` 与 `[effort-switcher] seat registered` —— 有这两行说明客户端已加载并注册（优先级 -100 应胜出）。
+   - `slot entry crashed in 'conversation.input.model':` 或 `[effort-switcher] inject failed for session` —— 说明我们的 seat 触发后被渲染器隔离、回退到官方 seat（这是设计内的兜底），**把该行完整报错发给我们**即可定位。
+   - 一行都没有 —— 客户端包没进启动图：页面源码（Ctrl+U）搜索 `dsh-effort-switcher`；或在桌面终端运行 `dsh --profile desktop --dump-config`，确认存在 `== dsh-effort-switcher` 层。
+3. 若控制台显示激活成功且无崩溃，但仍显示官方入口：确认所用 profile 正确（`dsh --profile desktop --dump-config` 中该层的 `id: effort-switcher` 覆盖了官方 `ui-model-selection` 行且无重复插入）。
+
 ## 生态合规（DSH 插件生态倡议书）
 
 - **组合优先**：通过官方 slot（`conversation.input.model`，由 `ui-conversation` 声明）与 service（`slots` / `modelDirectories` / `sessions`）组合能力，并借助 `slots.inject` 挂接官方声明生命周期；不 fork、不覆盖任何上游组件内部实现。
-- **声明清晰**：`dsh.client.inject` 显式声明依赖的客户端包（ui-slots、ui-conversation、ui-model-selection）；客户端插件的 `inject` 显式声明所需服务。
+- **声明清晰**：`dsh.client.inject` 显式声明依赖的客户端包（ui-conversation、ui-model-selection）；客户端插件的 `inject` 显式声明所需服务。
 - **兼容优先**：仅使用官方 DSH/Cordis 接口，不使用任何 Desktop 私有接口，升级到官方最新版本时无需改动组合方式。
 - **插件市场上线后**，遵循上述约定的插件将更容易被发现、安装与信任（详见 [DSH 插件生态倡议书](https://github.com/anywhere-labs/dsh-desktop/blob/master/docs/plugin-ecosystem.md) 与 [插件开发](https://github.com/anywhere-labs/dsh-desktop/blob/master/docs/plugin-development.md)）。

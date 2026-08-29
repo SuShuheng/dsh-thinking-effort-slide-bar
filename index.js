@@ -941,31 +941,50 @@ window.__ModuleLoader__.load({
                 // sessions (subagent addressing).
                 const { slots, modelDirectories: models, sessions } = scope;
 
+                // Diagnostic: confirm the client entry activated. If the
+                // composer still shows the official seat, this line tells
+                // whether the plugin was never loaded or was abdicated.
+                console.info("[effort-switcher] client activated", { slotName });
+
                 // Shadow the official `conversation.input.model` seat with a
                 // lower single-cell priority (the official seat registers at 0).
                 // `slots.inject` ties the registration to the declaration
                 // lifetime of ui-conversation's composer-bar entry, so the
                 // plugin composes without importing or forking the owner.
-                return slots.inject(slotName, () => slots.register({
-                    name: slotName,
-                    priority: -100,
-                    inject: (sessionId) => {
-                        const directory = models.directoryFor(sessionId);
-                        const available = sessions.subagentAddress(sessionId) === void 0;
-                        return {
-                            available,
-                            directory: directory.store,
-                            load: () => {
-                                if (available) return directory.load().catch(() => {});
-                                return Promise.resolve();
-                            },
-                            select: (selection) => available ? directory.select(selection).then(() => true, () => false) : Promise.resolve(false)
-                        };
+                return slots.inject(slotName, () => {
+                    if (typeof console !== "undefined") {
+                        console.info("[effort-switcher] seat registered", { slotName, priority: -100 });
                     }
-                }, EffortSliderSeat));
+                    return slots.register({
+                        name: slotName,
+                        priority: -100,
+                        inject: (sessionId) => {
+                            try {
+                                const directory = models.directoryFor(sessionId);
+                                const available = sessions.subagentAddress(sessionId) === void 0;
+                                return {
+                                    available,
+                                    directory: directory.store,
+                                    load: () => {
+                                        if (available) return directory.load().catch(() => {});
+                                        return Promise.resolve();
+                                    },
+                                    select: (selection) => available
+                                        ? directory.select(selection).then(() => true, () => false)
+                                        : Promise.resolve(false)
+                                };
+                            } catch (error) {
+                                // Loud diagnostic, then abdicate: the renderer's
+                                // per-entry isolation re-renders the official seat,
+                                // and the console line below names the failing call.
+                                console.error("[effort-switcher] inject failed for session", sessionId, error);
+                                throw error;
+                            }
+                        }
+                    }, EffortSliderSeat);
+                });
             });
         };
-
         // No host-configurable surface: this plugin declares no Config schema
         // (official client plugin shape) and accepts no row config.
 
