@@ -20,6 +20,37 @@
 - Web profile 必须包含官方 `@deepseek-ai/dsh-web-app` bundle：它提供 `ui-conversation` 声明的 `conversation.input.model` slot 与 `ui-model-selection` 提供的 `modelDirectories` 服务。官方默认 web / desktop profile 均已包含；缺失时官方客户端启动会以 fail-loud 方式报告该插件行未激活。
 - 当前模型必须暴露至少一个 reasoning effort 级别；无推理元数据的模型只显示模型选择入口，不显示滑块。
 
+## 推理强度等级（settings.yaml 驱动）
+
+滑块的每个位置 = 当前模型在 Host 模型中暴露的 `reasoning.efforts`，按**从左到右递增**排列。该目录由官方 `session/modelCatalog` 从各适配器解析（如 `dsh-llm-pi-ai` 读取 `$DSH_HOME/settings.yaml` 中每个模型声明的 `reasoningEfforts`），因此**不同提供商/模型可以有完全不同的档位数与档位名**，例如 `DeepSeek-V4-Flash` 声明 4 档（Low/Medium/High/Max，对应截图），另一个模型只声明 2 档则滑块只有两个位置。
+
+示例 `$DSH_HOME/settings.yaml`（`llm-pi-ai` 自定义网关）：
+
+```yaml
+llm-pi-ai:
+  providers:
+    my-gateway:
+      api: openai-completions
+      baseURL: https://gateway.example/v1
+      apiKeyEnv: GATEWAY_API_KEY
+      reasoning: high                  # 可选：该路由的默认推理强度
+      models:
+        - id: DeepSeek-V4-Flash
+          name: DeepSeek-V4-Flash
+          reasoningEfforts:
+            low: low                   # key = 档位（选择器展示），value = 线上发送的拼写
+            medium: medium
+            high: high
+            max: max
+```
+
+行为约定：
+
+- 滑块档位 = 该模型声明的档位；拖动后提交 `reasoningEffort`（档位 id），由 Host 校验并作用于后续请求。
+- 未声明 `reasoningEfforts`、声明为 `false` 或适配器无推理元数据的模型 → 不显示滑块（只保留模型选择入口）。
+- 修改 `settings.yaml` 后 Host 目录会在 `settings/document-updated` 事件时刷新，重新打开面板即可看到新档位，无需重启 `dsh web`。
+- 插件不直接解析 `settings.yaml`：成品目录由 Host 权威解析，滑块只消费 `reasoning.efforts`，与官方 `/model` 弹窗及 Host 校验保持一致。
+
 ## 安装
 
 Web profile：

@@ -550,6 +550,10 @@ window.__ModuleLoader__.load({
             const currentEffort = state.current?.reasoningEffort
                 ?? currentChoice?.model.reasoning?.defaultEffort
                 ?? undefined;
+            // Slider positions ARE this model's declarable reasoning levels, in
+            // escalating left->right order. The host catalog materializes them from
+            // settings.yaml reasoningEfforts (llm-pi-ai per-model dict) through the
+            // adapter, so different providers/models get different level counts.
             const levels = currentChoice?.model.reasoning?.efforts ?? [];
             const currentIndex = currentChoice === undefined ? -1 : effortIndex(levels, currentEffort);
             const currentLevel = currentChoice === undefined ? undefined : levels[currentIndex];
@@ -559,7 +563,8 @@ window.__ModuleLoader__.load({
             const modelLabel = currentChoice === undefined
                 ? "选择模型"
                 : currentChoice.model.name;
-            const fullLabel = effortLabel === undefined ? modelLabel : `${modelLabel} · ${effortLabel}`;
+            // Reference design shows "ModelName EffortName" with a space separator.
+            const fullLabel = effortLabel === undefined ? modelLabel : `${modelLabel} ${effortLabel}`;
 
             const chooseModel = (group, model) => {
                 const key = modelKey(group.id, model.id);

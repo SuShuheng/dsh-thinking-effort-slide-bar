@@ -58,9 +58,10 @@ const snapshot = {
             reasoning: {
                 defaultEffort: "medium",
                 efforts: [
-                    { id: "low", name: "低" },
-                    { id: "medium", name: "中" },
-                    { id: "high", name: "高" }
+                    { id: "low", name: "Low" },
+                    { id: "medium", name: "Medium" },
+                    { id: "high", name: "High" },
+                    { id: "max", name: "Max" }
                 ]
             }
         }, {
@@ -252,6 +253,19 @@ function findRange(node) {
 function findSliderFill(node) {
     return find(node, (n) => String(n.props?.className ?? "").split(/\s+/).includes("dsh-es-sliderFill"));
 }
+
+// Reference-design geometry shared with the component: thumb radius 15px and
+// the notch fill `calc(pct% + adj px)` rule. The demo model declares FOUR
+// levels (Low/Medium/High/Max) exactly like the reference screenshots, and
+// the other model declares only two — the slider positions must follow each
+// model's own reasoningEfforts from the host catalog (settings.yaml-driven).
+const THUMB_RADIUS = 15;
+const DEMO_LEVEL_COUNT = 4;
+function notchFill(index) {
+    const pct = Math.round((index / (DEMO_LEVEL_COUNT - 1)) * 100);
+    const adj = Math.round(THUMB_RADIUS - (THUMB_RADIUS * 2 * pct) / 100);
+    return `calc(${pct}% + ${adj}px)`;
+}
 function text(node) {
     if (node === null || node === undefined) return "";
     if (typeof node === "string") return node;
@@ -295,7 +309,7 @@ if (!tree || tree.props["data-dsh-plugin"] !== "effort-switcher") throw new Erro
 if (findRange(tree)) throw new Error("slider must not render while menu is closed");
 const trigger = tree.children[0];
 const triggerLabel = text(trigger);
-if (!triggerLabel.includes("Reasoning Model") || !triggerLabel.includes("低")) {
+if (!triggerLabel.includes("Reasoning Model") || !triggerLabel.includes("Low")) {
     throw new Error(`trigger should show model + effort, got: ${triggerLabel}`);
 }
 // Model name and effort must be separate spans (effort uses the caption tone)
@@ -304,7 +318,7 @@ const effortSpan = trigger.children.find((c) => c?.props?.className === "dsh-es-
 if (!labelSpan) throw new Error("trigger label span missing");
 if (text(labelSpan).trim() !== "Reasoning Model") throw new Error(`label span must hold only the model name, got ${JSON.stringify(text(labelSpan))}`);
 if (!effortSpan) throw new Error("trigger effort span missing");
-if (text(effortSpan).trim() !== "低") throw new Error(`effort span must hold the effort, got ${JSON.stringify(text(effortSpan))}`);
+if (text(effortSpan).trim() !== "Low") throw new Error(`effort span must hold the effort, got ${JSON.stringify(text(effortSpan))}`);
 // Chevron must be the DSH svg icon
 const chevron = trigger.children.find((c) => c?.type === "svg");
 if (!chevron) throw new Error("trigger chevron svg missing");
@@ -458,7 +472,10 @@ if (!hoverTip || !text(hoverTip).includes("当前草稿包含图片")) {
 }
 
 // 10. Slider: the native input sits above the reference-style rail, fill,
-// and embedded tick markers. Dragging updates the draft locally.
+// and embedded tick markers. Positions are the current model's effort levels
+// in escalating order (4 notches here), so dragging moves through every
+// reasoningEffort the model declares in settings.yaml; the draft updates
+// locally and commit happens on release.
 const sliderRail = find(sliderWrap2, (n) => n.props?.className === "dsh-es-sliderRail");
 const sliderTicks = find(sliderWrap2, (n) => n.props?.className === "dsh-es-sliderTicks");
 const slider = findRange(sliderWrap2);
@@ -466,10 +483,13 @@ const sliderFill = findSliderFill(sliderWrap2);
 if (!sliderRail || !sliderTicks || !slider || !sliderFill) throw new Error("reference-style slider layers missing");
 if (Number(slider.props.value) !== 0) throw new Error("slider value should map low -> index 0");
 if (sliderFill.props.style.width !== "0px") throw new Error("first notch fill must sit fully under the thumb");
+if (Number(slider.props.max) !== DEMO_LEVEL_COUNT - 1) {
+    throw new Error(`demo model must expose ${DEMO_LEVEL_COUNT} slider positions, got max ${slider.props.max}`);
+}
 const sliderKnob = find(sliderWrap2, (n) => n.props?.className === "dsh-es-sliderKnob");
 if (!sliderKnob) throw new Error("custom slider knob missing");
 if (sliderKnob.props.style.left !== "15px") throw new Error("first notch knob must stay inside the rail");
-// Drag to the penultimate notch: it must remain fully blue, with no purple.
+// Drag to Medium (index 1): the fill follows the knob and stays pure blue.
 slider.props.onInput({ currentTarget: { value: "1" } });
 beginRender();
 tree = registered.component({
@@ -481,12 +501,15 @@ tree = registered.component({
 });
 const slider2 = findRange(tree);
 const fill2 = findSliderFill(tree);
-if (Number(slider2.props.value) !== 1) throw new Error("draft must move the thumb to the penultimate notch");
-if (fill2.props.style.width !== "calc(50% + 0px)") throw new Error("mid fill must end at the thumb center");
+if (Number(slider2.props.value) !== 1) throw new Error("draft must move the thumb to Medium");
+if (fill2.props.style.width !== notchFill(1)) {
+    throw new Error(`Medium fill must end at the thumb center, got ${fill2.props.style.width}`);
+}
 const knob2 = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
 if (!knob2 || knob2.props.style.left !== fill2.props.style.width) {
     throw new Error("mid fill must stay glued to the knob");
 }
+// Drag to the penultimate notch (High): it must remain fully blue, with no purple.
 slider2.props.onInput({ currentTarget: { value: "2" } });
 beginRender();
 tree = registered.component({
@@ -498,29 +521,48 @@ tree = registered.component({
 });
 const slider3 = findRange(tree);
 const fill3 = findSliderFill(tree);
-if (Number(slider3.props.value) !== 2) throw new Error("draft must move the thumb without committing");
-if (fill3.props.style.width !== "calc(100% + -15px)") throw new Error("terminal fill must span the full rail");
+if (Number(slider3.props.value) !== 2) throw new Error("draft must move the thumb to High");
+if (fill3.props.style.width !== notchFill(2)) {
+    throw new Error(`High fill must end at the thumb center, got ${fill3.props.style.width}`);
+}
 const knob3 = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
-if (!knob3 || knob3.props.style.left !== "calc(100% - 15px)") {
-    throw new Error("last notch knob must stay inside the rail");
+if (!knob3 || knob3.props.style.left !== fill3.props.style.width) {
+    throw new Error("High fill must stay glued to the knob");
 }
-if (!String(fill3.props.className).includes("dsh-es-sliderFillMax")) {
-    throw new Error("last notch must reveal the bloom layer");
-}
-if (String(fill2.props.className).includes("dsh-es-sliderFillMax")) {
+if (String(fill3.props.className).includes("dsh-es-sliderFillMax")) {
     throw new Error("penultimate notch must keep the bloom hidden");
 }
-if (!find(fill3, (n) => n.props?.className === "dsh-es-sliderBloom")) {
+// Drag to the terminal notch (Max): full rail, gradient bloom, knob inside rail.
+slider3.props.onInput({ currentTarget: { value: "3" } });
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const slider4 = findRange(tree);
+const fill4 = findSliderFill(tree);
+if (Number(slider4.props.value) !== 3) throw new Error("draft must move the thumb to Max");
+if (fill4.props.style.width !== "calc(100% + -15px)") throw new Error("terminal fill must span the full rail");
+const knob4 = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
+if (!knob4 || knob4.props.style.left !== "calc(100% - 15px)") {
+    throw new Error("last notch knob must stay inside the rail");
+}
+if (!String(fill4.props.className).includes("dsh-es-sliderFillMax")) {
+    throw new Error("last notch must reveal the bloom layer");
+}
+if (!find(fill4, (n) => n.props?.className === "dsh-es-sliderBloom")) {
     throw new Error("bloom layer must stay mounted so color can fade");
 }
 if (directoryCalls.select.length !== 0) throw new Error("drag must not commit before release");
-// Release commits
-slider3.props.onMouseUp({ currentTarget: { value: "2" } });
+// Release commits the declared max level through the same modelDirectories path.
+slider4.props.onMouseUp({ currentTarget: { value: "3" } });
 const selected = directoryCalls.select[0];
-if (!selected || selected.reasoningEffort !== "high") {
-    throw new Error(`expected high, got ${JSON.stringify(selected)}`);
+if (!selected || selected.reasoningEffort !== "max") {
+    throw new Error(`expected max, got ${JSON.stringify(selected)}`);
 }
-
 // 11. Model list must be scrollable (flex child with overflow-y:auto)
 const modelMenu2 = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
 const scrollList = find(modelMenu2, (n) => n.props?.className === "dsh-es-modelList");
@@ -538,7 +580,7 @@ tree = registered.component({
     select: face.select
 });
 const draftSlider = findRange(tree);
-if (Number(draftSlider.props.value) !== 2) throw new Error("draft should be at high before switching");
+if (Number(draftSlider.props.value) !== 2) throw new Error("draft should be at High before switching");
 const modelMenu3 = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
 const otherItem = find(modelMenu3, (n) => n.props?.type === "button" && text(n).includes("Other Model"));
 if (!otherItem) throw new Error("second model item missing from list");
@@ -560,6 +602,11 @@ if (switchSelection.model !== "other-model" || switchSelection.reasoningEffort !
 }
 if (Number(afterSwitch.props.value) !== 0) {
     throw new Error(`after switching, thumb must show the new default (index 0), got ${afterSwitch.props.value}`);
+}
+// Per-model level counts: other-model declares only two efforts, so its
+// slider exposes exactly one step — different models, different positions.
+if (Number(afterSwitch.props.max) !== 1) {
+    throw new Error(`other model must expose 2 slider positions, got max ${afterSwitch.props.max}`);
 }
 
 // 13. When the host rejects a model switch, the secondary picker must stay
