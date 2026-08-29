@@ -1,4 +1,4 @@
-# dsh-effort-switcher bundle patch.
+# dsh-thinking-effort-slide-bar bundle patch.
 #
 # Official bundle semantics (see deepseek-harness "Package and install a
 # plugin"): a bundle ships one configuration layer; `dsh plugin
@@ -15,5 +15,5 @@
 # Remove any leftover profile-level mount of the same id to avoid a double
 # mount (a second insert at the same id would override, not merge).
 - insert:
-    - id: effort-switcher
-      name: dsh-effort-switcher
+    - id: thinking-effort-slide-bar
+      name: dsh-thinking-effort-slide-bar

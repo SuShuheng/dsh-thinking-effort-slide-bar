@@ -1,11 +1,11 @@
 window.__ModuleLoader__.load({
-    id: "dsh-effort-switcher",
+    id: "dsh-thinking-effort-slide-bar",
     factory: (require) => {
         const module = { exports: {} };
         const exports = module.exports;
         const react = require("react");
 
-        const name = "effort-switcher";
+        const name = "thinking-effort-slide-bar";
         // The same remote service faces ui-model-selection declares:
         // ModelDirectoryResolver builds each directory from the CALLER's
         // context (`ctx.remote.session`), so a client that calls
@@ -429,10 +429,10 @@ window.__ModuleLoader__.load({
 
         // Inject styles at module load, exactly like the original ModelSelect
         // bundle does — the client sandbox may not run effect callbacks.
-        const STYLE_TAG_ID = "dsh-effort-switcher/seat.css";
+        const STYLE_TAG_ID = "dsh-thinking-effort-slide-bar/seat.css";
         if (typeof document !== "undefined" && document.querySelector(`style[data-plugin-css=${JSON.stringify(STYLE_TAG_ID)}]`) === null) {
             const tag = document.createElement("style");
-            tag.dataset.plugin = "dsh-effort-switcher";
+            tag.dataset.plugin = "dsh-thinking-effort-slide-bar";
             tag.dataset.pluginCss = STYLE_TAG_ID;
             tag.textContent = css;
             document.head.appendChild(tag);
@@ -691,7 +691,7 @@ window.__ModuleLoader__.load({
 
             // Secondary menu: model picker, shown when the model row is clicked.
             if (state.groups.length === 0 && state.status !== "loading" && !initialLoading) {
-                console.warn("[effort-switcher] no available models", {
+                console.warn("[thinking-effort-slide-bar] no available models", {
                     status: state.status,
                     initialLoading,
                     error: state.error,
@@ -948,7 +948,7 @@ window.__ModuleLoader__.load({
                 // Diagnostic: confirm the client entry activated. If the
                 // composer still shows the official seat, this line tells
                 // whether the plugin was never loaded or was abdicated.
-                console.info("[effort-switcher] client activated", { slotName });
+                console.info("[thinking-effort-slide-bar] client activated", { slotName });
 
                 // Shadow the official `conversation.input.model` seat with a
                 // lower single-cell priority (the official seat registers at 0).
@@ -957,7 +957,7 @@ window.__ModuleLoader__.load({
                 // plugin composes without importing or forking the owner.
                 return slots.inject(slotName, () => {
                     if (typeof console !== "undefined") {
-                        console.info("[effort-switcher] seat registered", { slotName, priority: -100 });
+                        console.info("[thinking-effort-slide-bar] seat registered", { slotName, priority: -100 });
                     }
                     return slots.register({
                         name: slotName,
@@ -981,7 +981,7 @@ window.__ModuleLoader__.load({
                                 // Loud diagnostic, then abdicate: the renderer's
                                 // per-entry isolation re-renders the official seat,
                                 // and the console line below names the failing call.
-                                console.error("[effort-switcher] inject failed for session", sessionId, error);
+                                console.error("[thinking-effort-slide-bar] inject failed for session", sessionId, error);
                                 throw error;
                             }
                         }

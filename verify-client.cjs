@@ -193,7 +193,7 @@ vm.runInContext(source, context, { filename: "index.js" });
 if (!captured) throw new Error("client module did not register");
 
 // 0. Styles must be injected at module load (original bundles do this at top level)
-const styleTag = styleTags.find((tag) => tag.dataset.pluginCss === "dsh-effort-switcher/seat.css");
+const styleTag = styleTags.find((tag) => tag.dataset.pluginCss === "dsh-thinking-effort-slide-bar/seat.css");
 if (!styleTag) throw new Error("style tag not injected at module load");
 if (!styleTag.textContent.includes("border-radius: 22px")) throw new Error("trigger radius missing from injected css");
 if (!styleTag.textContent.includes("--dsw-alias-label-secondary")) throw new Error("dsh tokens missing from injected css");
@@ -276,7 +276,7 @@ function text(node) {
 }
 
 // 1. Official client plugin module shape: name/inject/apply, no legacy config plane
-if (captured.name !== "effort-switcher") throw new Error(`wrong module name ${captured.name}`);
+if (captured.name !== "thinking-effort-slide-bar") throw new Error(`wrong module name ${captured.name}`);
 if (!Array.isArray(captured.inject)) throw new Error("inject must be an array");
 for (const required of ["slots", "modelDirectories", "sessions", "remote", "remote.session"]) {
     if (!captured.inject.includes(required)) throw new Error(`inject must declare ${required}`);
@@ -306,7 +306,7 @@ let tree = registered.component({
     load: face.load,
     select: face.select
 });
-if (!tree || tree.props["data-dsh-plugin"] !== "effort-switcher") throw new Error("root element missing");
+if (!tree || tree.props["data-dsh-plugin"] !== "thinking-effort-slide-bar") throw new Error("root element missing");
 if (findRange(tree)) throw new Error("slider must not render while menu is closed");
 const trigger = tree.children[0];
 const triggerLabel = text(trigger);

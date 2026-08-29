@@ -1,5 +1,5 @@
 /**
- * Host entry for the dsh-effort-switcher bundle.
+ * Host entry for the dsh-thinking-effort-slide-bar bundle.
  *
  * This row exists so the DSH Loader can scan the package and discover its
  * `dsh.client` declaration, which registers the browser half (./client) as
@@ -12,7 +12,7 @@
  *   - `apply`    Plugin body; an empty apply is the expected pattern for a
  *                client-only capability row (cf. cordis-client-runner).
  */
-export const name = "effort-switcher";
+export const name = "thinking-effort-slide-bar";
 export const inject = [];
 
 export function apply() {}
