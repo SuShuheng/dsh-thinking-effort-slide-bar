@@ -874,25 +874,23 @@ window.__ModuleLoader__.load({
 
         const apply = (ctx) => {
             ctx.inject(inject, (scope) => {
-                const slots = scope.get("slots");
-                const models = scope.get("modelDirectories");
-                const sessions = scope.get("sessions");
+                // Required services are declared in `inject` above and are
+                // ready on scope: slots (registry), modelDirectories (the
+                // per-session model directory owned by ui-model-selection),
+                // sessions (subagent addressing).
+                const { slots, modelDirectories: models, sessions } = scope;
 
+                // Shadow the official `conversation.input.model` seat with a
+                // lower single-cell priority (the official seat registers at 0).
+                // `slots.inject` ties the registration to the declaration
+                // lifetime of ui-conversation's composer-bar entry, so the
+                // plugin composes without importing or forking the owner.
                 return slots.inject(slotName, () => slots.register({
                     name: slotName,
                     priority: -100,
                     inject: (sessionId) => {
                         const directory = models.directoryFor(sessionId);
                         const available = sessions.subagentAddress(sessionId) === void 0;
-                        const snapshot = directory.store?.getSnapshot?.();
-                        console.log("[effort-switcher] directory", {
-                            sessionId,
-                            available,
-                            status: snapshot?.status,
-                            groupCount: snapshot?.groups?.length ?? 0,
-                            error: snapshot?.error ?? null,
-                            current: snapshot?.current ?? null
-                        });
                         return {
                             available,
                             directory: directory.store,
@@ -907,28 +905,12 @@ window.__ModuleLoader__.load({
             });
         };
 
-        const Config = {
-            "~standard": {
-                version: 1,
-                vendor: "dsh-effort-switcher",
-                validate(config) {
-                    if (config === undefined || config === null) return { value: {} };
-                    if (typeof config !== "object" || Array.isArray(config)) {
-                        return {
-                            issues: [{
-                                message: "plugin config must be an object"
-                            }]
-                        };
-                    }
-                    return { value: config };
-                }
-            }
-        };
+        // No host-configurable surface: this plugin declares no Config schema
+        // (official client plugin shape) and accepts no row config.
 
         exports.name = name;
         exports.inject = inject;
         exports.apply = apply;
-        exports.Config = Config;
         return module.exports;
     }
 });

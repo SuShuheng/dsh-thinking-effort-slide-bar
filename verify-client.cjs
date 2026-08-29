@@ -45,6 +45,8 @@ const listeners = new Set();
 const snapshot = {
     status: "ready",
     error: null,
+    routable: true,
+    failures: [],
     current: { provider: "demo", model: "reasoning-model", reasoningEffort: "low" },
     groups: [{
         id: "demo",
@@ -145,7 +147,9 @@ const slots = {
 
 const ctx = {
     inject(_services, callback) {
-        callback({
+        // Real Cordis exposes declared injected services as properties on the
+        // injection scope; mirror that here (in addition to `get`).
+        const scope = {
             get(service) {
                 if (service === "slots") return slots;
                 if (service === "modelDirectories") return { directoryFor: () => directory };
@@ -155,7 +159,11 @@ const ctx = {
             effect(fn) {
                 return fn();
             }
-        });
+        };
+        scope.slots = slots;
+        scope.modelDirectories = { directoryFor: () => directory };
+        scope.sessions = { subagentAddress: () => undefined };
+        callback(scope);
     }
 };
 
@@ -252,9 +260,14 @@ function text(node) {
     return (node.children ?? []).map(text).join("");
 }
 
-// 1. Config must validate (client runner check)
-const cfg = captured.Config["~standard"].validate(undefined);
-if (cfg.issues || JSON.stringify(cfg.value) !== "{}") throw new Error("Config validation failed");
+// 1. Official client plugin module shape: name/inject/apply, no legacy config plane
+if (captured.name !== "effort-switcher") throw new Error(`wrong module name ${captured.name}`);
+if (!Array.isArray(captured.inject)) throw new Error("inject must be an array");
+for (const required of ["slots", "modelDirectories", "sessions"]) {
+    if (!captured.inject.includes(required)) throw new Error(`inject must declare ${required}`);
+}
+if (typeof captured.apply !== "function") throw new Error("apply must be a function");
+if (captured.Config !== undefined) throw new Error("client module must not export a legacy Config plane");
 
 // 2. Apply registers the slot seat with shadow priority
 captured.apply(ctx);
@@ -616,7 +629,7 @@ face.load();
 if (directoryCalls.load !== 1) throw new Error("load not delegated");
 
 console.log("all checks passed");
-console.log("- config validation ok, priority =", registered.options.priority);
+console.log("- module shape: name/inject/apply ok; slot shadow priority =", registered.options.priority);
 console.log("- trigger label:", triggerLabel);
 console.log("- popover floats above trigger (absolute, bottom: calc(100% + 8px))");
 console.log("- secondary model window floats above the panel; slider submits:", JSON.stringify(selected));

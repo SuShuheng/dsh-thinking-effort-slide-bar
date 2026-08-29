@@ -1,7 +1,19 @@
 # dsh-effort-switcher bundle patch.
-# `dsh plugin --profile web add github:lemonorangeapple/dsh-effort-switcher`
-# appends this package to dsh.profile.bundles and applies this insert.
-# Remove any leftover profile-level mount of the same id to avoid double-mount.
+#
+# Official bundle semantics (see deepseek-harness "Package and install a
+# plugin"): a bundle ships one configuration layer; `dsh plugin
+# --profile <name> add ...` appends this package to dsh.profile.bundles and
+# applies this insert. The row only has to exist so the Loader scans the
+# package and discovers its `dsh.client` declaration, which registers the
+# Web Client bundle (./client) with the host client-modules table.
+#
+# The same layer applies to the DSH Desktop profile (dsh plugin --profile
+# desktop add ...) — the desktop shell composes dsh-base + dsh-web-app +
+# profile bundles over the same Loader path, so a Web Client plugin needs no
+# Desktop-specific row here.
+#
+# Remove any leftover profile-level mount of the same id to avoid a double
+# mount (a second insert at the same id would override, not merge).
 - insert:
     - id: effort-switcher
       name: dsh-effort-switcher
