@@ -39,7 +39,10 @@
     "reasoning",
     "effort",
     "slider",
-    "desktop"
+    "desktop",
+    "dsh-plugin",
+    "dsh-plugins",
+    "think-effort"
   ],
   "repository": {
     "type": "git",
