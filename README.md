@@ -87,11 +87,13 @@ dsh plugin add github:SuShuheng/dsh-effort-switcher#v1.3.2
 dsh plugin --profile desktop add github:SuShuheng/dsh-effort-switcher#v1.3.2
 ```
 
-### 方式二：Release 打包的 tarball（无构建步骤，无需 allowBuilds 白名单）
+### 方式二：tarball 本地安装（无构建步骤，无需 allowBuilds 白名单）
+
+从 [Releases](https://github.com/SuShuheng/dsh-effort-switcher/releases) 页面下载 `dsh-effort-switcher-1.3.2.tgz`（或 `npm pack` 自行打包），然后：
 
 ```powershell
-dsh plugin --profile web add https://github.com/SuShuheng/dsh-effort-switcher/releases/download/v1.3.2/dsh-effort-switcher-1.3.2.tgz
-dsh plugin --profile desktop add https://github.com/SuShuheng/dsh-effort-switcher/releases/download/v1.3.2/dsh-effort-switcher-1.3.2.tgz
+dsh plugin --profile web add ./dsh-effort-switcher-1.3.2.tgz
+dsh plugin --profile desktop add ./dsh-effort-switcher-1.3.2.tgz
 ```
 
 ### 方式三：直接锚定 commit（跟随最新源码）
