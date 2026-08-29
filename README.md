@@ -72,24 +72,24 @@ llm-pi-ai:
 Web profile：
 
 ```powershell
-dsh plugin --profile web add github:SuShuheng/dsh-effort-switcher#v1.3.2
+dsh plugin --profile web add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.3.2
 ```
 
 DSH Desktop（托盘「Open DSH Terminal」，裸 `dsh` 默认作用于当前激活 profile）：
 
 ```powershell
-dsh plugin add github:SuShuheng/dsh-effort-switcher#v1.3.2
+dsh plugin add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.3.2
 ```
 
 也可以显式指定 desktop profile：
 
 ```powershell
-dsh plugin --profile desktop add github:SuShuheng/dsh-effort-switcher#v1.3.2
+dsh plugin --profile desktop add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.3.2
 ```
 
 ### 方式二：tarball 本地安装（无构建步骤，无需 allowBuilds 白名单）
 
-从 [Releases](https://github.com/SuShuheng/dsh-effort-switcher/releases) 页面下载 `dsh-effort-switcher-1.3.2.tgz`（或 `npm pack` 自行打包），然后：
+从 [Releases](https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases) 页面下载 `dsh-effort-switcher-1.3.2.tgz`（或 `npm pack` 自行打包），然后：
 
 ```powershell
 dsh plugin --profile web add ./dsh-effort-switcher-1.3.2.tgz
@@ -99,7 +99,7 @@ dsh plugin --profile desktop add ./dsh-effort-switcher-1.3.2.tgz
 ### 方式三：直接锚定 commit（跟随最新源码）
 
 ```powershell
-dsh plugin --profile web add github:SuShuheng/dsh-effort-switcher#<commit-ish>
+dsh plugin --profile web add github:SuShuheng/dsh-thinking-effort-slide-bar#<commit-ish>
 ```
 
 无论哪种方式，命令都会在 profile 的 `dsh.profile.bundles` 中追加本 bundle（因为包声明了 `dsh.bundle`），无需手改 `cordis.patch.yml`。git/tarball 安装本插件**没有** `prepare` 构建（客户端包就是成品 bundle），一般不需要 `allowBuilds` 白名单。
