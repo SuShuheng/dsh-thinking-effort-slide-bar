@@ -6,7 +6,11 @@ window.__ModuleLoader__.load({
         const react = require("react");
 
         const name = "effort-switcher";
-        const inject = ["slots", "modelDirectories", "sessions"];
+        // The same remote service faces ui-model-selection declares:
+        // ModelDirectoryResolver builds each directory from the CALLER's
+        // context (`ctx.remote.session`), so a client that calls
+        // `modelDirectories.directoryFor` must carry the same injects.
+        const inject = ["slots", "modelDirectories", "sessions", "remote", "remote.session"];
         const slotName = "conversation.input.model";
 
         const css = `

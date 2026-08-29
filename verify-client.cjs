@@ -278,7 +278,7 @@ function text(node) {
 // 1. Official client plugin module shape: name/inject/apply, no legacy config plane
 if (captured.name !== "effort-switcher") throw new Error(`wrong module name ${captured.name}`);
 if (!Array.isArray(captured.inject)) throw new Error("inject must be an array");
-for (const required of ["slots", "modelDirectories", "sessions"]) {
+for (const required of ["slots", "modelDirectories", "sessions", "remote", "remote.session"]) {
     if (!captured.inject.includes(required)) throw new Error(`inject must declare ${required}`);
 }
 if (typeof captured.apply !== "function") throw new Error("apply must be a function");
