@@ -90,3 +90,5 @@ temp/
 .temp/
 
 .jspace
+# 构建产物
+*.tgz
