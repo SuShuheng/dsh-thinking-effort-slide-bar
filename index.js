@@ -443,11 +443,11 @@ window.__ModuleLoader__.load({
         // user label. Level identity, order and matching therefore follow the
         // VALUE (the effort id), never the user-chosen key (the name):
         //   off and none are the same leftmost "no reasoning" notch,
-        //   escalation is none/off < low < medium < high < max.
-        const EFFORT_RANK = { none: 0, off: 0, low: 1, medium: 2, high: 3, max: 4 };
+        //   escalation is off/none < minimal < low < medium < high < xhigh < max.
+        const EFFORT_RANK = { none: 0, off: 0, minimal: 1, low: 2, medium: 3, high: 4, xhigh: 5, max: 6 };
         // Frontend display names are the FIXED key vocabulary; the none value
         // renders as "off" (default = off / value none).
-        const EFFORT_LABEL = { none: "off", off: "off", low: "low", medium: "medium", high: "high", max: "max" };
+        const EFFORT_LABEL = { none: "off", off: "off", minimal: "minimal", low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" };
 
         function effortValue(id) {
             return id === "off" ? "none" : id;
@@ -604,7 +604,7 @@ window.__ModuleLoader__.load({
             // escalating left->right order. The host catalog materializes them from
             // settings.yaml reasoningEfforts (pi-ai per-model dict) or the adapter
             // (deepseek Off/Low/High/Max); off/none is the LEFTMOST notch. Any
-            // subset of [off, low, medium, high, max] yields 2..5 notches, and a
+            // subset of [off, minimal, low, medium, high, xhigh, max] yields 2..7 notches, and a
             // model that declares exactly one level renders one fixed notch.
             const catalogLevels = currentChoice?.model.reasoning?.efforts ?? [];
             // Models without reasoning metadata get the single "off" notch:

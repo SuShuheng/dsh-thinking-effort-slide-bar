@@ -58,11 +58,13 @@ const snapshot = {
             reasoning: {
                 defaultEffort: "medium",
                 efforts: [
-                    { id: "high", name: "最深" },
-                    { id: "none", name: "停止" },
                     { id: "max", name: "极限" },
+                    { id: "off", name: "关闭" },
+                    { id: "medium", name: "中等" },
+                    { id: "minimal", name: "极少" },
+                    { id: "xhigh", name: "超高" },
                     { id: "low", name: "浅算" },
-                    { id: "medium", name: "中等" }
+                    { id: "high", name: "深度" }
                 ]
             }
         }, {
@@ -261,7 +263,7 @@ function findSliderFill(node) {
 // the other model declares only two — the slider positions must follow each
 // model's own reasoningEfforts from the host catalog (settings.yaml-driven).
 const THUMB_RADIUS = 15;
-const DEMO_LEVEL_COUNT = 5;
+const DEMO_LEVEL_COUNT = 7;
 function notchFill(index) {
     const pct = Math.round((index / (DEMO_LEVEL_COUNT - 1)) * 100);
     const adj = Math.round(THUMB_RADIUS - (THUMB_RADIUS * 2 * pct) / 100);
@@ -474,10 +476,11 @@ if (!hoverTip || !text(hoverTip).includes("当前草稿包含图片")) {
 
 // 10. Slider: the native input sits above the reference-style rail, fill,
 // and embedded tick markers. Positions are the current model's effort levels
-// in VALUE order — here five notches mapped by id (none/low/medium/high/max,
-// the leftmost "none" (off) level is the no-reasoning notch. Dragging moves through every reasoning
-// effort the model declares in settings.yaml; the draft updates locally and
-// commit happens on release.
+// in VALUE order — here SEVEN notches mapped by id (off/minimal/low/medium/
+// high/xhigh/max, supplied shuffled; the value decides the position, never the
+// key name). The leftmost off (none) level is the no-reasoning notch. Dragging
+// moves through every reasoning effort the model declares in settings.yaml;
+// the draft updates locally and commit happens on release.
 const sliderRail = find(sliderWrap2, (n) => n.props?.className === "dsh-es-sliderRail");
 const sliderTicks = find(sliderWrap2, (n) => n.props?.className === "dsh-es-sliderTicks");
 const slider = findRange(sliderWrap2);
@@ -491,7 +494,15 @@ if (Number(slider.props.max) !== DEMO_LEVEL_COUNT - 1) {
 const sliderKnob = find(sliderWrap2, (n) => n.props?.className === "dsh-es-sliderKnob");
 if (!sliderKnob) throw new Error("custom slider knob missing");
 if (sliderKnob.props.style.left !== "15px") throw new Error("first notch knob must stay inside the rail");
-// Drag to Low (index 1): the fill follows the knob and stays pure blue.
+
+function headLabel(tree, label) {
+    const head = find(tree, (n) => n.props?.className === "dsh-es-sliderHead");
+    if (!head || !text(head).includes(label)) {
+        throw new Error(`notch head must display the fixed key "${label}", got ${JSON.stringify(text(head))}`);
+    }
+}
+
+// Drag to minimal (index 1): the fill follows the knob and stays pure blue.
 slider.props.onInput({ currentTarget: { value: "1" } });
 beginRender();
 tree = registered.component({
@@ -503,43 +514,17 @@ tree = registered.component({
 });
 const slider2 = findRange(tree);
 const fill2 = findSliderFill(tree);
-if (Number(slider2.props.value) !== 1) throw new Error("draft must move the thumb to low");
+if (Number(slider2.props.value) !== 1) throw new Error("draft must move the thumb to minimal");
 if (fill2.props.style.width !== notchFill(1)) {
-    throw new Error(`Low fill must end at the thumb center, got ${fill2.props.style.width}`);
+    throw new Error(`minimal fill must end at the thumb center, got ${fill2.props.style.width}`);
 }
-const headLow = find(tree, (n) => n.props?.className === "dsh-es-sliderHead");
-if (!headLow || !text(headLow).includes("low")) {
-    throw new Error(`first step must display the fixed key "low", got ${JSON.stringify(text(headLow))}`);
-}
+headLabel(tree, "minimal");
 const knob2 = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
 if (!knob2 || knob2.props.style.left !== fill2.props.style.width) {
-    throw new Error("mid fill must stay glued to the knob");
+    throw new Error("minimal fill must stay glued to the knob");
 }
-// Drag to Medium (index 2): still pure blue.
+// Drag to low (index 2).
 slider2.props.onInput({ currentTarget: { value: "2" } });
-beginRender();
-tree = registered.component({
-    locked: false,
-    available: face.available,
-    directory: face.directory,
-    load: face.load,
-    select: face.select
-});
-const sliderMid = findRange(tree);
-const fillMid = findSliderFill(tree);
-if (Number(sliderMid.props.value) !== 2) throw new Error("draft must move the thumb to medium");
-if (fillMid.props.style.width !== notchFill(2)) {
-    throw new Error(`Medium fill must end at the thumb center, got ${fillMid.props.style.width}`);
-}
-const headMid = find(tree, (n) => n.props?.className === "dsh-es-sliderHead");
-if (!headMid || !text(headMid).includes("medium")) {
-    throw new Error(`second step must display the fixed key "medium", got ${JSON.stringify(text(headMid))}`);
-}
-if (String(fillMid.props.className).includes("dsh-es-sliderFillMax")) {
-    throw new Error("mid notch must keep the bloom hidden");
-}
-// Drag to the penultimate notch (High, index 3): remains fully blue.
-sliderMid.props.onInput({ currentTarget: { value: "3" } });
 beginRender();
 tree = registered.component({
     locked: false,
@@ -550,19 +535,17 @@ tree = registered.component({
 });
 const slider3 = findRange(tree);
 const fill3 = findSliderFill(tree);
-if (Number(slider3.props.value) !== 3) throw new Error("draft must move the thumb to high");
-if (fill3.props.style.width !== notchFill(3)) {
-    throw new Error(`High fill must end at the thumb center, got ${fill3.props.style.width}`);
+if (Number(slider3.props.value) !== 2) throw new Error("draft must move the thumb to low");
+if (fill3.props.style.width !== notchFill(2)) {
+    throw new Error(`low fill must end at the thumb center, got ${fill3.props.style.width}`);
 }
+headLabel(tree, "low");
 const knob3 = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
 if (!knob3 || knob3.props.style.left !== fill3.props.style.width) {
-    throw new Error("High fill must stay glued to the knob");
+    throw new Error("low fill must stay glued to the knob");
 }
-if (String(fill3.props.className).includes("dsh-es-sliderFillMax")) {
-    throw new Error("penultimate notch must keep the bloom hidden");
-}
-// Drag to the terminal notch (Max): full rail, gradient bloom, knob inside rail.
-slider3.props.onInput({ currentTarget: { value: "4" } });
+// Drag to medium (index 3): still pure blue.
+slider3.props.onInput({ currentTarget: { value: "3" } });
 beginRender();
 tree = registered.component({
     locked: false,
@@ -571,32 +554,96 @@ tree = registered.component({
     load: face.load,
     select: face.select
 });
-const slider4 = findRange(tree);
-const fill4 = findSliderFill(tree);
-if (Number(slider4.props.value) !== 4) throw new Error("draft must move the thumb to max");
-if (fill4.props.style.width !== "calc(100% + -15px)") throw new Error("terminal fill must span the full rail");
-const knob4 = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
-if (!knob4 || knob4.props.style.left !== "calc(100% - 15px)") {
+const sliderMid = findRange(tree);
+const fillMid = findSliderFill(tree);
+if (Number(sliderMid.props.value) !== 3) throw new Error("draft must move the thumb to medium");
+if (fillMid.props.style.width !== notchFill(3)) {
+    throw new Error(`medium fill must end at the thumb center, got ${fillMid.props.style.width}`);
+}
+headLabel(tree, "medium");
+if (String(fillMid.props.className).includes("dsh-es-sliderFillMax")) {
+    throw new Error("medium notch must keep the bloom hidden");
+}
+// Drag to high (index 4).
+sliderMid.props.onInput({ currentTarget: { value: "4" } });
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const sliderHigh = findRange(tree);
+const fillHigh = findSliderFill(tree);
+if (Number(sliderHigh.props.value) !== 4) throw new Error("draft must move the thumb to high");
+if (fillHigh.props.style.width !== notchFill(4)) {
+    throw new Error(`high fill must end at the thumb center, got ${fillHigh.props.style.width}`);
+}
+headLabel(tree, "high");
+const knobHigh = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
+if (!knobHigh || knobHigh.props.style.left !== fillHigh.props.style.width) {
+    throw new Error("high fill must stay glued to the knob");
+}
+if (String(fillHigh.props.className).includes("dsh-es-sliderFillMax")) {
+    throw new Error("high notch must keep the bloom hidden");
+}
+// Drag to the penultimate notch (xhigh, index 5): remains fully blue.
+sliderHigh.props.onInput({ currentTarget: { value: "5" } });
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const sliderXhigh = findRange(tree);
+const fillXhigh = findSliderFill(tree);
+if (Number(sliderXhigh.props.value) !== 5) throw new Error("draft must move the thumb to xhigh");
+if (fillXhigh.props.style.width !== notchFill(5)) {
+    throw new Error(`xhigh fill must end at the thumb center, got ${fillXhigh.props.style.width}`);
+}
+headLabel(tree, "xhigh");
+if (String(fillXhigh.props.className).includes("dsh-es-sliderFillMax")) {
+    throw new Error("penultimate notch must keep the bloom hidden");
+}
+// Drag to the terminal notch (max, index 6): full rail, gradient bloom, knob inside rail.
+sliderXhigh.props.onInput({ currentTarget: { value: "6" } });
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const sliderMax = findRange(tree);
+const fillLast = findSliderFill(tree);
+if (Number(sliderMax.props.value) !== 6) throw new Error("draft must move the thumb to max");
+if (fillLast.props.style.width !== "calc(100% + -15px)") throw new Error("terminal fill must span the full rail");
+const knobMax = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
+if (!knobMax || knobMax.props.style.left !== "calc(100% - 15px)") {
     throw new Error("last notch knob must stay inside the rail");
 }
-if (!String(fill4.props.className).includes("dsh-es-sliderFillMax")) {
+if (!String(fillLast.props.className).includes("dsh-es-sliderFillMax")) {
     throw new Error("last notch must reveal the bloom layer");
 }
-if (!find(fill4, (n) => n.props?.className === "dsh-es-sliderBloom")) {
+if (!find(fillLast, (n) => n.props?.className === "dsh-es-sliderBloom")) {
     throw new Error("bloom layer must stay mounted so color can fade");
 }
 if (directoryCalls.select.length !== 0) throw new Error("drag must not commit before release");
 // Release commits the declared max level through the same modelDirectories path.
-slider4.props.onMouseUp({ currentTarget: { value: "4" } });
+sliderMax.props.onMouseUp({ currentTarget: { value: "6" } });
 const selected = directoryCalls.select[0];
 if (!selected || selected.reasoningEffort !== "max") {
     throw new Error(`expected max, got ${JSON.stringify(selected)}`);
 }
 
-// 10b. The leftmost notch is the none value (displayed "off"): drag back and
-//      commit it — the slider supports any subset of the value vocabulary, and
-//      none/off is just the first position.
-slider4.props.onInput({ currentTarget: { value: "0" } });
+// 10b. The leftmost notch is off (value off, no-reasoning): drag back and
+//      commit it — the slider supports any subset of the value vocabulary,
+//      and off/none is just the first position.
+sliderMax.props.onInput({ currentTarget: { value: "0" } });
 beginRender();
 tree = registered.component({
     locked: false,
@@ -606,15 +653,12 @@ tree = registered.component({
     select: face.select
 });
 const offSlider = findRange(tree);
-if (Number(offSlider.props.value) !== 0) throw new Error("draft must move the thumb back to Off");
-const offHead = find(tree, (n) => n.props?.className === "dsh-es-sliderHead");
-if (!offHead || !text(offHead).includes("off")) {
-    throw new Error(`none notch head must display "off", got ${JSON.stringify(text(offHead))}`);
-}
+if (Number(offSlider.props.value) !== 0) throw new Error("draft must move the thumb back to off");
+headLabel(tree, "off");
 offSlider.props.onMouseUp({ currentTarget: { value: "0" } });
 const offSelection = directoryCalls.select[directoryCalls.select.length - 1];
-if (!offSelection || offSelection.reasoningEffort !== "none") {
-    throw new Error(`expected none (value of off), got ${JSON.stringify(offSelection)}`);
+if (!offSelection || offSelection.reasoningEffort !== "off") {
+    throw new Error(`expected off, got ${JSON.stringify(offSelection)}`);
 }
 
 // 11. Model list must be scrollable (flex child with overflow-y:auto)
@@ -624,7 +668,7 @@ if (!scrollList) throw new Error("model list node missing in secondary window");
 
 // 12. Switching models must reset the local draft so the thumb follows the
 //     real server-side effort (new model's default), not the stale drag.
-slider3.props.onInput({ currentTarget: { value: "2" } });
+sliderHigh.props.onInput({ currentTarget: { value: "2" } });
 beginRender();
 tree = registered.component({
     locked: false,
@@ -634,7 +678,7 @@ tree = registered.component({
     select: face.select
 });
 const draftSlider = findRange(tree);
-if (Number(draftSlider.props.value) !== 2) throw new Error("draft should be at High before switching");
+if (Number(draftSlider.props.value) !== 2) throw new Error("draft should be at low before switching");
 const modelMenu3 = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
 const otherItem = find(modelMenu3, (n) => n.props?.type === "button" && text(n).includes("Other Model"));
 if (!otherItem) throw new Error("second model item missing from list");
