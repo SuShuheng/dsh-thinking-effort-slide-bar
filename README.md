@@ -87,9 +87,16 @@ dsh plugin add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.4.0
 dsh plugin --profile desktop add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.4.0
 ```
 
-### 方式二：tarball 本地安装（无构建步骤，无需 allowBuilds 白名单）
+### 方式二：tarball 安装（无构建步骤，无需 allowBuilds 白名单）
 
-从 [Releases](https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases) 页面下载 `dsh-thinking-effort-slide-bar-1.4.0.tgz`（或 `npm pack` 自行打包），然后：
+直接安装 Release 资产（推荐）：
+
+```powershell
+dsh plugin --profile web add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.4.0/dsh-thinking-effort-slide-bar-1.4.0.tgz
+dsh plugin --profile desktop add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.4.0/dsh-thinking-effort-slide-bar-1.4.0.tgz
+```
+
+也可以从 [Releases](https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases) 页面下载 `dsh-thinking-effort-slide-bar-1.4.0.tgz`（或 `npm pack` 自行打包）后本地安装：
 
 ```powershell
 dsh plugin --profile web add ./dsh-thinking-effort-slide-bar-1.4.0.tgz
