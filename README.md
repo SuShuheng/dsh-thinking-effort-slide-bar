@@ -12,8 +12,8 @@
 ## 兼容性
 
 - **官方 DSH**：`0.1.2-alpha.1`（当前最新 release）及其兼容实现，Web profile 与 CLI 均可运行。
-- **DSH Desktop**：随应用锁定的上游即 `0.1.2-alpha.1`，本插件作为普通 Web Client bundle 安装进 Desktop profile 即可，无需任何 Desktop 专属改造。
-- **组合方式**：只依赖官方 DSH contract —— `dsh.client` 客户端声明、`slots`（`conversation.input.model`）与 `slots` / `modelDirectories` / `sessions` 服务。不借用 `desktopRuntime`、`desktopPnpmBootstrap`、`desktopProfiles`、`desktopPnpm` 或任何 Electron API，因此**桌面壳、普通 Web 与 CLI 共用同一条兼容路径**。
+- **DSH Desktop**：随应用锁定的上游即 `0.1.2-alpha.1`，本插件作为普通 Web Client bundle 安装进 Desktop profile 即可，无需任何 Desktop 专属改造。**已在 DSH Desktop（desktop profile）实测可用**（v1.3.2）。
+- **组合方式**：只依赖官方 DSH contract —— `dsh.client` 客户端声明、`slots`（`conversation.input.model`）与 `slots` / `modelDirectories` / `sessions` / `remote` / `remote.session` 服务。不借用 `desktopRuntime`、`desktopPnpmBootstrap`、`desktopProfiles`、`desktopPnpm` 或任何 Electron API，因此**桌面壳、普通 Web 与 CLI 共用同一条兼容路径**。
 
 ## 要求
 
@@ -67,31 +67,40 @@ llm-pi-ai:
 
 ## 安装
 
+### 方式一：GitHub Release 标签（推荐，锚定版本）
+
 Web profile：
 
 ```powershell
-dsh plugin --profile web add github:SuShuheng/dsh-effort-switcher
+dsh plugin --profile web add github:SuShuheng/dsh-effort-switcher#v1.3.2
 ```
 
 DSH Desktop（托盘「Open DSH Terminal」，裸 `dsh` 默认作用于当前激活 profile）：
 
 ```powershell
-dsh plugin add github:SuShuheng/dsh-effort-switcher
+dsh plugin add github:SuShuheng/dsh-effort-switcher#v1.3.2
 ```
 
-也可以显式指定：
+也可以显式指定 desktop profile：
 
 ```powershell
-dsh plugin --profile desktop add github:SuShuheng/dsh-effort-switcher
+dsh plugin --profile desktop add github:SuShuheng/dsh-effort-switcher#v1.3.2
 ```
 
-命令会在 profile 的 `dsh.profile.bundles` 中追加本 bundle（因为包声明了 `dsh.bundle`），无需手改 `cordis.patch.yml`。
+### 方式二：Release 打包的 tarball（无构建步骤，无需 allowBuilds 白名单）
 
-**安装来源建议：** git 安装拉取的是源码而非构建产物（本插件客户端包本身就是成品 bundle，无构建步骤）。建议锚定 commit，避免上游后续推送意外改变执行内容：
+```powershell
+dsh plugin --profile web add https://github.com/SuShuheng/dsh-effort-switcher/releases/download/v1.3.2/dsh-effort-switcher-1.3.2.tgz
+dsh plugin --profile desktop add https://github.com/SuShuheng/dsh-effort-switcher/releases/download/v1.3.2/dsh-effort-switcher-1.3.2.tgz
+```
+
+### 方式三：直接锚定 commit（跟随最新源码）
 
 ```powershell
 dsh plugin --profile web add github:SuShuheng/dsh-effort-switcher#<commit-ish>
 ```
+
+无论哪种方式，命令都会在 profile 的 `dsh.profile.bundles` 中追加本 bundle（因为包声明了 `dsh.bundle`），无需手改 `cordis.patch.yml`。git/tarball 安装本插件**没有** `prepare` 构建（客户端包就是成品 bundle），一般不需要 `allowBuilds` 白名单。
 
 安装后必须**完全停止并重启** `dsh web`（或 DSH Desktop），再刷新/重新打开页面。DSH 只在 Host 进程启动时扫描 `dsh.client` 元数据；只刷新旧页面或运行独立开发服务器不会加载本插件。
 
@@ -155,7 +164,7 @@ README.md          安装与合规说明。
 
 ### 已安装但仍显示官方模型入口（未出现滑块）
 
-「安装成功」不等于「客户端已生效」：bundle 行进入 Host 组合后，Web Client 启动图还要发现并激活客户端包，我们的 seat 才能在 slot 里胜出。按顺序排查：
+「安装成功」不等于「客户端已生效」：bundle 行进入 Host 组合后，Web Client 启动图还要发现并激活客户端包，我们的 seat 才能在 slot 里胜出。**已知根因之一已在 v1.3.2 修复**（插件客户端缺少 `remote` / `remote.session` 注入，`modelDirectories.directoryFor` 抛 `cannot get property "remote.session" without inject` 后被渲染器隔离、回退官方 seat）——请先升级到 v1.3.2，再按顺序排查：
 
 1. **完全重启 DSH Desktop**（托盘「退出」而非关窗；Windows 下确认没有残留 `dsh-desktop` 进程），再重新打开窗口并 **Ctrl+Shift+R 硬刷新**。插件必须在 Host 启动时进入 Loader 组合，仅刷新页面不会加载。
 2. 打开页面 DevTools Console（F12），搜索：
@@ -166,7 +175,15 @@ README.md          安装与合规说明。
 
 ## 生态合规（DSH 插件生态倡议书）
 
-- **组合优先**：通过官方 slot（`conversation.input.model`，由 `ui-conversation` 声明）与 service（`slots` / `modelDirectories` / `sessions`）组合能力，并借助 `slots.inject` 挂接官方声明生命周期；不 fork、不覆盖任何上游组件内部实现。
-- **声明清晰**：`dsh.client.inject` 显式声明依赖的客户端包（ui-conversation、ui-model-selection）；客户端插件的 `inject` 显式声明所需服务。
+- **组合优先**：通过官方 slot（`conversation.input.model`，由 `ui-conversation` 声明）与 service（`slots` / `modelDirectories` / `sessions` / `remote` / `remote.session`）组合能力，并借助 `slots.inject` 挂接官方声明生命周期；不 fork、不覆盖任何上游组件内部实现。
+- **声明清晰**：`dsh.client.inject` 显式声明依赖的客户端包（`@deepseek-ai/dsh-api-remotes`、ui-conversation、ui-model-selection）；客户端插件的 `inject` 显式声明所需服务（与官方 ui-model-selection 一致）。
 - **兼容优先**：仅使用官方 DSH/Cordis 接口，不使用任何 Desktop 私有接口，升级到官方最新版本时无需改动组合方式。
 - **插件市场上线后**，遵循上述约定的插件将更容易被发现、安装与信任（详见 [DSH 插件生态倡议书](https://github.com/anywhere-labs/dsh-desktop/blob/master/docs/plugin-ecosystem.md) 与 [插件开发](https://github.com/anywhere-labs/dsh-desktop/blob/master/docs/plugin-development.md)）。
+
+## 更新日志
+
+- **v1.3.2**：修复 seat 被渲染器隔离回退（官方入口兜底显示）的根因——客户端 inject 补齐与官方一致的 `remote` / `remote.session`（`ModelDirectoryResolver` 按调用方上下文访问 `ctx.remote.session`）；`dsh.client.inject` 增加 `@deepseek-ai/dsh-api-remotes` 依赖边。已在 DSH Desktop 实测可用。
+- **v1.3.1**：新增激活/注册/故障诊断日志；`inject` face 异常显式报错后重抛（触发渲染器隔离并回退官方入口，便于定位）；移除指向平台模块的无效依赖边。
+- **v1.3.0**：档位一律按数值（`id`）判定与排序（`none/off < low < medium < high < max`，`off`≡`none` 为最左「不思考」档）；任意子集 2/3/4/5 档自适应；无 reasoning 元数据模型显示单档 `off`（默认=off、值 none，只读）；前端显示名称固定为键名词汇 `off/low/medium/high/max`。
+- **v1.2.0**：滑块效果对齐参考图（触发器 `模型名 档位名` 空格分隔）；档位完全由 settings.yaml 的 `reasoningEfforts` 驱动（任意档数）。
+- **v1.1.0**：兼容官方最新 DSH 规范与 DSH Desktop 插件规范（移除旧 `~standard` Config、规范 host 入口、显式依赖声明、Desktop 安装指引）。
