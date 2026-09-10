@@ -12,7 +12,7 @@
 ## 兼容性
 
 - **官方 DSH**：`0.1.2-alpha.1`（当前最新 release）及其兼容实现，Web profile 与 CLI 均可运行。
-- **DSH Desktop**：随应用锁定的上游即 `0.1.2-alpha.1`，本插件作为普通 Web Client bundle 安装进 Desktop profile 即可，无需任何 Desktop 专属改造。**已在 DSH Desktop（desktop profile）实测可用**（v1.5.0）。
+- **DSH Desktop**：随应用锁定的上游即 `0.1.2-alpha.1`，本插件作为普通 Web Client bundle 安装进 Desktop profile 即可，无需任何 Desktop 专属改造。**已在 DSH Desktop（desktop profile）实测可用**（v1.5.1）。
 - **组合方式**：只依赖官方 DSH contract —— `dsh.client` 客户端声明、`slots`（`conversation.input.model`）与 `slots` / `modelDirectories` / `sessions` / `remote` / `remote.session` 服务。不借用 `desktopRuntime`、`desktopPnpmBootstrap`、`desktopProfiles`、`desktopPnpm` 或任何 Electron API，因此**桌面壳、普通 Web 与 CLI 共用同一条兼容路径**。
 
 ## 要求
@@ -74,19 +74,19 @@ llm-pi-ai:
 Web profile：
 
 ```powershell
-dsh plugin --profile web add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.0
+dsh plugin --profile web add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.1
 ```
 
 DSH Desktop（托盘「Open DSH Terminal」，裸 `dsh` 默认作用于当前激活 profile）：
 
 ```powershell
-dsh plugin add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.0
+dsh plugin add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.1
 ```
 
 也可以显式指定 desktop profile：
 
 ```powershell
-dsh plugin --profile desktop add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.0
+dsh plugin --profile desktop add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.1
 ```
 
 ### 方式二：tarball 安装（无构建步骤，无需 allowBuilds 白名单）
@@ -94,15 +94,15 @@ dsh plugin --profile desktop add github:SuShuheng/dsh-thinking-effort-slide-bar#
 直接安装 Release 资产（推荐）：
 
 ```powershell
-dsh plugin --profile web add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.5.0/dsh-thinking-effort-slide-bar-1.5.0.tgz
-dsh plugin --profile desktop add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.5.0/dsh-thinking-effort-slide-bar-1.5.0.tgz
+dsh plugin --profile web add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.5.1/dsh-thinking-effort-slide-bar-1.5.1.tgz
+dsh plugin --profile desktop add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.5.1/dsh-thinking-effort-slide-bar-1.5.1.tgz
 ```
 
-也可以从 [Releases](https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases) 页面下载 `dsh-thinking-effort-slide-bar-1.5.0.tgz`（或 `npm pack` 自行打包）后本地安装：
+也可以从 [Releases](https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases) 页面下载 `dsh-thinking-effort-slide-bar-1.5.1.tgz`（或 `npm pack` 自行打包）后本地安装：
 
 ```powershell
-dsh plugin --profile web add ./dsh-thinking-effort-slide-bar-1.5.0.tgz
-dsh plugin --profile desktop add ./dsh-thinking-effort-slide-bar-1.5.0.tgz
+dsh plugin --profile web add ./dsh-thinking-effort-slide-bar-1.5.1.tgz
+dsh plugin --profile desktop add ./dsh-thinking-effort-slide-bar-1.5.1.tgz
 ```
 
 ### 方式三：直接锚定 commit（跟随最新源码）
@@ -175,7 +175,7 @@ README.md          安装与合规说明。
 
 ### 已安装但仍显示官方模型入口（未出现滑块）
 
-「安装成功」不等于「客户端已生效」：bundle 行进入 Host 组合后，Web Client 启动图还要发现并激活客户端包，我们的 seat 才能在 slot 里胜出。**已知根因之一已在 v1.3.2 修复**（插件客户端缺少 `remote` / `remote.session` 注入，`modelDirectories.directoryFor` 抛 `cannot get property "remote.session" without inject` 后被渲染器隔离、回退官方 seat）——请先安装最新版（v1.5.0，包名 `dsh-thinking-effort-slide-bar`），再按顺序排查：
+「安装成功」不等于「客户端已生效」：bundle 行进入 Host 组合后，Web Client 启动图还要发现并激活客户端包，我们的 seat 才能在 slot 里胜出。**已知根因之一已在 v1.3.2 修复**（插件客户端缺少 `remote` / `remote.session` 注入，`modelDirectories.directoryFor` 抛 `cannot get property "remote.session" without inject` 后被渲染器隔离、回退官方 seat）——请先安装最新版（v1.5.1，包名 `dsh-thinking-effort-slide-bar`），再按顺序排查：
 
 1. **完全重启 DSH Desktop**（托盘「退出」而非关窗；Windows 下确认没有残留 `dsh-desktop` 进程），再重新打开窗口并 **Ctrl+Shift+R 硬刷新**。插件必须在 Host 启动时进入 Loader 组合，仅刷新页面不会加载。
 2. 打开页面 DevTools Console（F12），搜索：
@@ -193,6 +193,7 @@ README.md          安装与合规说明。
 
 ## 更新日志
 
+- **v1.5.1**：优化模型选择浮层与模型列表布局。二级模型菜单与主菜单统一对齐；模型名称不再被同一行的说明文本挤压；模型说明改为悬浮注释框，并支持键盘聚焦和窄屏自动换侧。
 - **v1.5.0**：档位词汇表扩展为 7 档 —— `off / minimal / low / medium / high / xhigh / max`（新增 `minimal` 与 `xhigh`，对应 `minimal:minimal` / `xhigh:xhigh` 键值对；`off`≡`none` 仍为最左「不思考」档）。排序、显示名、任意子集（2..7 档）与自检全部按新词汇表。
 - **v1.4.0**：仓库与包名同步改名为 `dsh-thinking-effort-slide-bar`（Loader 行 id / 模块名 / 控制台标签 / 安装卸载命令 / tarball 名全部同步）；安装命令改为 `github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.0`。**升级自 v1.3.2 及更早版本**：旧包名 `dsh-effort-switcher` 与新包名是不同 bundle，请先 `dsh plugin remove dsh-effort-switcher` 再安装新版，避免两个 bundle 并存。
 - **v1.3.2**：修复 seat 被渲染器隔离回退（官方入口兜底显示）的根因——客户端 inject 补齐与官方一致的 `remote` / `remote.session`（`ModelDirectoryResolver` 按调用方上下文访问 `ctx.remote.session`）；`dsh.client.inject` 增加 `@deepseek-ai/dsh-api-remotes` 依赖边。已在 DSH Desktop 实测可用。

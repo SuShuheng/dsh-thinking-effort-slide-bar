@@ -51,6 +51,7 @@ window.__ModuleLoader__.load({
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+    flex: 1 1 auto;
     overflow: hidden;
 }
 .dsh-es-triggerEffort {
@@ -137,7 +138,8 @@ window.__ModuleLoader__.load({
     z-index: 10000;
     border: 1px solid var(--dsw-alias-border-inverted);
     background: var(--dsw-specific-menu);
-    width: min(220px, calc(100vw - 32px));
+    /* Keep both floating panels on the same right edge and width. */
+    width: min(240px, calc(100vw - 32px));
     max-height: min(240px, calc(100vh - 96px));
     box-shadow: var(--dsw-shadow-lv3);
     color: var(--dsw-alias-label-primary);
@@ -168,6 +170,8 @@ window.__ModuleLoader__.load({
     align-items: center;
     justify-content: space-between;
     gap: 6px;
+    min-width: 0;
+    position: relative;
     width: 100%;
     border: none;
     background: 0 0;
@@ -193,7 +197,8 @@ window.__ModuleLoader__.load({
 .dsh-es-menuItemBlocked:hover {
     background: var(--dsw-alias-interactive-bg-hover);
 }
-.dsh-es-menuItemNotice {
+.dsh-es-menuItemNotice,
+.dsh-es-menuItemInfo {
     position: relative;
     flex: none;
     display: inline-flex;
@@ -203,11 +208,19 @@ window.__ModuleLoader__.load({
     height: 14px;
     color: var(--dsw-alias-label-tertiary);
 }
+.dsh-es-menuItemInfo {
+    color: var(--dsw-alias-label-caption);
+}
+.dsh-es-menuItemNotice svg,
+.dsh-es-menuItemInfo svg {
+    display: block;
+}
 .dsh-es-menuItemTip {
     z-index: 10001;
     position: fixed;
+    box-sizing: border-box;
     width: max-content;
-    max-width: 200px;
+    max-width: min(200px, calc(100vw - 16px));
     padding: 5px 6px;
     border: 1px solid var(--dsw-alias-border-inverted);
     border-radius: 6px;
@@ -217,15 +230,23 @@ window.__ModuleLoader__.load({
     font-size: 11px;
     line-height: 15px;
     white-space: normal;
+    overflow-wrap: anywhere;
     pointer-events: none;
 }
-.dsh-es-menuItemDesc {
-    color: var(--dsw-alias-label-caption);
-    font-size: 11px;
-    line-height: 15px;
+.dsh-es-menuItemName {
+    flex: 1 1 auto;
+    min-width: 0;
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
+}
+.dsh-es-menuItemName,
+.dsh-es-menuItemInfo,
+.dsh-es-menuItemNotice {
+    min-width: 0;
+}
+.dsh-es-menuItemName {
+    color: inherit;
 }
 .dsh-es-menuStatus, .dsh-es-menuEmpty {
     color: var(--dsw-alias-label-tertiary);
@@ -508,6 +529,9 @@ window.__ModuleLoader__.load({
         // slider still renders one fixed "off" notch (the "default" IS off;
         // its value is none), display-only and never commits an effort.
         const DEFAULT_LEVELS = [{ id: undefined, name: "off" }];
+        const MODEL_ANNOTATION_ID = "dsh-es-model-annotation";
+        const MODEL_ANNOTATION_WIDTH = 200;
+        const MODEL_ANNOTATION_GAP = 8;
 
         const chevronIcon = (path, className) => react.createElement(
             "svg",
@@ -521,6 +545,14 @@ window.__ModuleLoader__.load({
             react.createElement("path", { d: ICON_WARNING_BAR, fill: "currentColor" }),
             react.createElement("path", { d: ICON_WARNING_DOT, fill: "currentColor" }),
             react.createElement("path", { d: ICON_WARNING_RING, fill: "currentColor" })
+        );
+
+        const infoIcon = (className) => react.createElement(
+            "svg",
+            { className, width: 14, height: 14, viewBox: "0 0 14 14", fill: "none", xmlns: "http://www.w3.org/2000/svg" },
+            react.createElement("circle", { cx: 7, cy: 7, r: 5.5, stroke: "currentColor", strokeWidth: 1.25 }),
+            react.createElement("path", { d: "M7 6.15V10", stroke: "currentColor", strokeWidth: 1.25, strokeLinecap: "round" }),
+            react.createElement("circle", { cx: 7, cy: 4.2, r: 0.75, fill: "currentColor" })
         );
 
         function knownTextOnlyModel(provider, model) {
@@ -551,6 +583,33 @@ window.__ModuleLoader__.load({
             const inputSnapshot = (useInput ?? defaultUseInput)((s) => s);
             const draftHasImages = inputSnapshot !== null && inputSnapshot !== undefined && (inputSnapshot.imageIds?.length ?? 0) > 0;
 
+            const showModelAnnotation = (event, annotation, key) => {
+                if (annotation === undefined || annotation === null || annotation === "") return;
+                const box = event.currentTarget.getBoundingClientRect();
+                const numberOr = (value, fallback) => {
+                    const number = Number(value);
+                    return Number.isFinite(number) ? number : fallback;
+                };
+                const right = numberOr(box.right, numberOr(box.left, 0) + 16);
+                const left = numberOr(box.left, right - 16);
+                const top = numberOr(box.top, numberOr(box.bottom, 0) - 18);
+                const viewportWidth = typeof window === "undefined" ? NaN : Number(window.innerWidth);
+                const preferredLeft = right + MODEL_ANNOTATION_GAP;
+                const hasRoomOnRight = !Number.isFinite(viewportWidth)
+                    || preferredLeft + MODEL_ANNOTATION_WIDTH <= viewportWidth - MODEL_ANNOTATION_GAP;
+                const tooltipLeft = hasRoomOnRight
+                    ? preferredLeft
+                    : Math.max(MODEL_ANNOTATION_GAP, left - MODEL_ANNOTATION_GAP - MODEL_ANNOTATION_WIDTH);
+                setHoveredNotice({
+                    id: key,
+                    text: annotation,
+                    left: Math.round(tooltipLeft),
+                    top: Math.max(MODEL_ANNOTATION_GAP, Math.round(top))
+                });
+            };
+
+            const hideModelAnnotation = () => setHoveredNotice(null);
+
             react.useEffect(() => {
                 if (available) {
                     load().then(() => setInitialLoading(false), () => setInitialLoading(false));
@@ -558,8 +617,8 @@ window.__ModuleLoader__.load({
             }, [available, load]);
 
             react.useEffect(() => {
-                if (!open) setHoveredNotice(null);
-            }, [open]);
+                if (!open || !modelsOpen) setHoveredNotice(null);
+            }, [open, modelsOpen]);
 
             react.useEffect(() => {
                 if (!open) return;
@@ -712,9 +771,14 @@ window.__ModuleLoader__.load({
                             const active = state.current?.provider === group.id && state.current.model === model.id;
                             const failedReason = blockedModels[modelKey(group.id, model.id)];
                             const imageBlocked = draftHasImages && knownTextOnlyModel(group.id, model);
-                            const warned = failedReason !== undefined || imageBlocked;
                             const blocked = failedReason !== undefined;
                             const noticeReason = failedReason ?? (imageBlocked ? IMAGE_BLOCK_REASON : undefined);
+                            const description = typeof model.description === "string" && model.description.trim().length > 0
+                                ? model.description
+                                : undefined;
+                            const annotation = noticeReason ?? description;
+                            const annotationKey = modelKey(group.id, model.id);
+                            const accessibleAnnotation = [noticeReason, description].filter(Boolean).join("；");
                             return react.createElement(
                                 "button",
                                 {
@@ -726,29 +790,36 @@ window.__ModuleLoader__.load({
                                         blocked ? "dsh-es-menuItemBlocked" : ""
                                     ].filter(Boolean).join(" "),
                                     "aria-disabled": blocked,
-                                    onClick: () => chooseModel(group, model)
+                                    "aria-label": accessibleAnnotation.length > 0
+                                        ? `${model.name}：${accessibleAnnotation}`
+                                        : model.name,
+                                    "aria-describedby": hoveredNotice?.id === annotationKey ? MODEL_ANNOTATION_ID : undefined,
+                                    onClick: () => chooseModel(group, model),
+                                    onMouseEnter: annotation === undefined
+                                        ? undefined
+                                        : (event) => showModelAnnotation(event, annotation, annotationKey),
+                                    onMouseLeave: annotation === undefined ? undefined : hideModelAnnotation,
+                                    onFocus: annotation === undefined
+                                        ? undefined
+                                        : (event) => showModelAnnotation(event, annotation, annotationKey),
+                                    onBlur: annotation === undefined ? undefined : hideModelAnnotation
                                 },
-                                react.createElement("span", { className: "dsh-es-triggerLabel" }, model.name),
-                                warned
+                                react.createElement("span", { className: "dsh-es-menuItemName" }, model.name),
+                                noticeReason !== undefined
                                     ? react.createElement(
                                         "span",
                                         {
                                             className: "dsh-es-menuItemNotice",
-                                            tabIndex: 0,
-                                            onMouseEnter: (event) => {
-                                                const box = event.currentTarget.getBoundingClientRect();
-                                                setHoveredNotice({
-                                                    text: noticeReason,
-                                                    left: Math.round(box.right - 8),
-                                                    top: Math.round(box.bottom + 6)
-                                                });
-                                            },
-                                            onMouseLeave: () => setHoveredNotice(null)
+                                            "aria-hidden": true
                                         },
                                         warningIcon()
                                     )
-                                    : model.description !== void 0
-                                        ? react.createElement("span", { className: "dsh-es-menuItemDesc" }, model.description)
+                                    : description !== undefined
+                                        ? react.createElement(
+                                            "span",
+                                            { className: "dsh-es-menuItemInfo", "aria-hidden": true },
+                                            infoIcon()
+                                        )
                                         : null
                             );
                         })
@@ -924,11 +995,11 @@ window.__ModuleLoader__.load({
                         "div",
                         {
                             className: "dsh-es-menuItemTip",
+                            id: MODEL_ANNOTATION_ID,
                             role: "tooltip",
                             style: {
                                 left: `${hoveredNotice.left}px`,
-                                top: `${hoveredNotice.top}px`,
-                                transform: "translateX(-100%)"
+                                top: `${hoveredNotice.top}px`
                             }
                         },
                         hoveredNotice.text

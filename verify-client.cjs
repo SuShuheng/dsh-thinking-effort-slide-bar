@@ -174,6 +174,7 @@ const ctx = {
 const styleTags = [];
 const context = vm.createContext({
     window: {
+        innerWidth: 500,
         __ModuleLoader__: {
             load({ id, factory }) {
                 captured = factory((specifier) => {
@@ -232,6 +233,13 @@ if (!styleTag.textContent.includes(".dsh-es-sliderFill")) throw new Error("slide
 if (!styleTag.textContent.includes(".dsh-es-sliderTicks")) throw new Error("slider must render embedded notch markers");
 if (!styleTag.textContent.includes("z-index: 3")) throw new Error("native input must sit above the visual rail");
 if (!styleTag.textContent.includes("accent-color: transparent")) throw new Error("native slider accent must not paint leftover fill");
+const modelMenuCss = styleTag.textContent.match(/\.dsh-es-modelMenu\s*\{[^}]*\}/)?.[0] ?? "";
+if (!modelMenuCss.includes("width: min(240px, calc(100vw - 32px))")) {
+    throw new Error("secondary model menu must share the main panel width");
+}
+if (!styleTag.textContent.includes(".dsh-es-menuItemName")) throw new Error("model names need a dedicated flexible label");
+if (!styleTag.textContent.includes(".dsh-es-menuItemInfo")) throw new Error("described model items need an info marker");
+if (styleTag.textContent.includes(".dsh-es-menuItemDesc")) throw new Error("model descriptions must not render inline");
 
 function find(node, predicate) {
     if (node === null || node === undefined) return undefined;
@@ -400,6 +408,61 @@ if (deepseekItem.props.disabled === true || deepseekItem.props["aria-disabled"] 
 if (find(deepseekItem, (n) => n.props?.className === "dsh-es-menuItemNotice")) {
     throw new Error("image notice must stay hidden until the current session has images");
 }
+const deepseekInfo = find(deepseekItem, (n) => n.props?.className === "dsh-es-menuItemInfo");
+if (!deepseekInfo) throw new Error("described model must show an info marker");
+if (typeof deepseekItem.props.onMouseEnter !== "function") {
+    throw new Error("described model must expose a hover handler on the option");
+}
+deepseekItem.props.onMouseEnter({
+    currentTarget: { getBoundingClientRect: () => ({ left: 80, right: 220, top: 80, bottom: 98 }) }
+});
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const descriptionTip = find(tree, (n) => n.props?.className === "dsh-es-menuItemTip");
+if (!descriptionTip || !text(descriptionTip).includes("官方 DeepSeek 路由")) {
+    throw new Error("model description must render in the hover annotation");
+}
+if (descriptionTip.props.id !== "dsh-es-model-annotation") throw new Error("model annotation id missing");
+if (descriptionTip.props.style.left !== "228px") throw new Error("model annotation must prefer the option's right side");
+const describedItem = find(tree, (n) => n.props?.type === "button" && text(n).includes("DeepSeek-V4-Flash"));
+if (!describedItem || describedItem.props["aria-describedby"] !== "dsh-es-model-annotation") {
+    throw new Error("focused model description must be associated with its tooltip");
+}
+describedItem.props.onMouseEnter({
+    currentTarget: { getBoundingClientRect: () => ({ left: 330, right: 470, top: 40, bottom: 58 }) }
+});
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const fallbackTip = find(tree, (n) => n.props?.className === "dsh-es-menuItemTip");
+if (!fallbackTip || fallbackTip.props.style.left !== "122px") {
+    throw new Error("model annotation must stay inside the viewport when the right side is unavailable");
+}
+const fallbackItem = find(tree, (n) => n.props?.type === "button" && text(n).includes("DeepSeek-V4-Flash"));
+if (!fallbackItem) throw new Error("described model must remain available after tooltip repositioning");
+fallbackItem.props.onMouseLeave();
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+if (find(tree, (n) => n.props?.className === "dsh-es-menuItemTip")) {
+    throw new Error("model annotation must close when the option is left");
+}
 
 function renderWithDraftImages() {
     beginRender();
@@ -462,10 +525,10 @@ if (find(imagedVision, (n) => n.props?.className === "dsh-es-menuItemNotice")) {
 const imagedDeepseek = find(imagedMenu, (n) => n.props?.type === "button" && text(n).includes("DeepSeek-V4-Flash"));
 if (!imagedDeepseek) throw new Error("DeepSeek official model missing after draft image render");
 const deepseekNotice = find(imagedDeepseek, (n) => n.props?.className === "dsh-es-menuItemNotice");
-if (!deepseekNotice || typeof deepseekNotice.props.onMouseEnter !== "function") {
+if (!deepseekNotice || typeof imagedDeepseek.props.onMouseEnter !== "function") {
     throw new Error("text-only model must show a hoverable notice icon once draft has images");
 }
-deepseekNotice.props.onMouseEnter({
+imagedDeepseek.props.onMouseEnter({
     currentTarget: { getBoundingClientRect: () => ({ right: 120, bottom: 80 }) }
 });
 tree = renderWithDraftImages();
