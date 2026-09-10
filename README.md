@@ -12,13 +12,13 @@
 ## 兼容性
 
 - **官方 DSH**：`0.1.2-alpha.1`（当前最新 release）及其兼容实现，Web profile 与 CLI 均可运行。
-- **DSH Desktop**：随应用锁定的上游即 `0.1.2-alpha.1`，本插件作为普通 Web Client bundle 安装进 Desktop profile 即可，无需任何 Desktop 专属改造。**已在 DSH Desktop（desktop profile）实测可用**（v1.5.1）。
+- **DSH Desktop**：随应用锁定的上游即 `0.1.2-alpha.1`，本插件作为普通 Web Client bundle 安装进 Desktop profile 即可，无需任何 Desktop 专属改造。**已在 DSH Desktop（desktop profile）实测可用**；v1.5.2 延续相同的兼容路径。
 - **组合方式**：只依赖官方 DSH contract —— `dsh.client` 客户端声明、`slots`（`conversation.input.model`）与 `slots` / `modelDirectories` / `sessions` / `remote` / `remote.session` 服务。不借用 `desktopRuntime`、`desktopPnpmBootstrap`、`desktopProfiles`、`desktopPnpm` 或任何 Electron API，因此**桌面壳、普通 Web 与 CLI 共用同一条兼容路径**。
 
 ## 要求
 
 - Web profile 必须包含官方 `@deepseek-ai/dsh-web-app` bundle：它提供 `ui-conversation` 声明的 `conversation.input.model` slot 与 `ui-model-selection` 提供的 `modelDirectories` 服务。官方默认 web / desktop profile 均已包含；缺失时官方客户端启动会以 fail-loud 方式报告该插件行未激活。
-- 当前模型必须暴露至少一个 reasoning effort 级别；无推理元数据的模型只显示模型选择入口，不显示滑块。
+- 当前模型如果没有 reasoning 元数据，会显示一个只读的 `off` 档；支持 reasoning 的模型则可通过滑块调整强度。
 
 ## 推理强度等级（settings.yaml 驱动）
 
@@ -74,19 +74,19 @@ llm-pi-ai:
 Web profile：
 
 ```powershell
-dsh plugin --profile web add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.1
+dsh plugin --profile web add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.2
 ```
 
 DSH Desktop（托盘「Open DSH Terminal」，裸 `dsh` 默认作用于当前激活 profile）：
 
 ```powershell
-dsh plugin add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.1
+dsh plugin add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.2
 ```
 
 也可以显式指定 desktop profile：
 
 ```powershell
-dsh plugin --profile desktop add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.1
+dsh plugin --profile desktop add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.2
 ```
 
 ### 方式二：tarball 安装（无构建步骤，无需 allowBuilds 白名单）
@@ -94,15 +94,15 @@ dsh plugin --profile desktop add github:SuShuheng/dsh-thinking-effort-slide-bar#
 直接安装 Release 资产（推荐）：
 
 ```powershell
-dsh plugin --profile web add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.5.1/dsh-thinking-effort-slide-bar-1.5.1.tgz
-dsh plugin --profile desktop add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.5.1/dsh-thinking-effort-slide-bar-1.5.1.tgz
+dsh plugin --profile web add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.5.2/dsh-thinking-effort-slide-bar-1.5.2.tgz
+dsh plugin --profile desktop add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.5.2/dsh-thinking-effort-slide-bar-1.5.2.tgz
 ```
 
-也可以从 [Releases](https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases) 页面下载 `dsh-thinking-effort-slide-bar-1.5.1.tgz`（或 `npm pack` 自行打包）后本地安装：
+也可以从 [Releases](https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases) 页面下载 `dsh-thinking-effort-slide-bar-1.5.2.tgz`（或 `npm pack` 自行打包）后本地安装：
 
 ```powershell
-dsh plugin --profile web add ./dsh-thinking-effort-slide-bar-1.5.1.tgz
-dsh plugin --profile desktop add ./dsh-thinking-effort-slide-bar-1.5.1.tgz
+dsh plugin --profile web add ./dsh-thinking-effort-slide-bar-1.5.2.tgz
+dsh plugin --profile desktop add ./dsh-thinking-effort-slide-bar-1.5.2.tgz
 ```
 
 ### 方式三：直接锚定 commit（跟随最新源码）
@@ -143,7 +143,7 @@ npm run check   # 语法检查（index.js / host.js / verify-client.cjs）
 npm test        # 无真实 DSH 的客户端行为验证（verify-client.cjs）
 ```
 
-`npm test` 在 vm 中加载客户端 bundle，以最小 React shim 渲染 `EffortSliderSeat`，验证：官方客户端模块形状（`name`/`inject`/`apply`，无旧版 Config 平面）、以负数 priority 影子替换官方 seat（官方为 0）、注入 face 暴露 `available`/`directory`/`load`/`select`、两级菜单浮层、滑块拖拽/提交/换模型重置、失败选择保留菜单并显示错误、草稿含图片时的模型提示等。
+`npm test` 在 vm 中加载客户端 bundle，以最小 React shim 渲染 `EffortSliderSeat`，验证：官方客户端模块形状（`name`/`inject`/`apply`，无旧版 Config 平面）、以负数 priority 影子替换官方 seat（官方为 0）、注入 face 暴露 `available`/`directory`/`load`/`select`、从输入区上方出现的单一浮层及其模型/强度互斥视图、滑块拖拽/提交/换模型重置、失败选择保留菜单并显示错误、草稿含图片时的模型提示等。
 
 从本地 checkout 链入 profile 进行迭代：
 
@@ -175,7 +175,7 @@ README.md          安装与合规说明。
 
 ### 已安装但仍显示官方模型入口（未出现滑块）
 
-「安装成功」不等于「客户端已生效」：bundle 行进入 Host 组合后，Web Client 启动图还要发现并激活客户端包，我们的 seat 才能在 slot 里胜出。**已知根因之一已在 v1.3.2 修复**（插件客户端缺少 `remote` / `remote.session` 注入，`modelDirectories.directoryFor` 抛 `cannot get property "remote.session" without inject` 后被渲染器隔离、回退官方 seat）——请先安装最新版（v1.5.1，包名 `dsh-thinking-effort-slide-bar`），再按顺序排查：
+「安装成功」不等于「客户端已生效」：bundle 行进入 Host 组合后，Web Client 启动图还要发现并激活客户端包，我们的 seat 才能在 slot 里胜出。**已知根因之一已在 v1.3.2 修复**（插件客户端缺少 `remote` / `remote.session` 注入，`modelDirectories.directoryFor` 抛 `cannot get property "remote.session" without inject` 后被渲染器隔离、回退官方 seat）——请先安装最新版（v1.5.2，包名 `dsh-thinking-effort-slide-bar`），再按顺序排查：
 
 1. **完全重启 DSH Desktop**（托盘「退出」而非关窗；Windows 下确认没有残留 `dsh-desktop` 进程），再重新打开窗口并 **Ctrl+Shift+R 硬刷新**。插件必须在 Host 启动时进入 Loader 组合，仅刷新页面不会加载。
 2. 打开页面 DevTools Console（F12），搜索：
@@ -193,6 +193,7 @@ README.md          安装与合规说明。
 
 ## 更新日志
 
+- **v1.5.2**：修复模型说明框贴近窗口边缘时的溢出；模型列表改为与推理强度滑块互斥的同一上浮面板视图；滑块面板改用参考图的紧凑圆角深色样式与鼠尾草绿色轨道，并补充当前模型勾选状态。
 - **v1.5.1**：优化模型选择浮层与模型列表布局。二级模型菜单与主菜单统一对齐；模型名称不再被同一行的说明文本挤压；模型说明改为悬浮注释框，并支持键盘聚焦和窄屏自动换侧。
 - **v1.5.0**：档位词汇表扩展为 7 档 —— `off / minimal / low / medium / high / xhigh / max`（新增 `minimal` 与 `xhigh`，对应 `minimal:minimal` / `xhigh:xhigh` 键值对；`off`≡`none` 仍为最左「不思考」档）。排序、显示名、任意子集（2..7 档）与自检全部按新词汇表。
 - **v1.4.0**：仓库与包名同步改名为 `dsh-thinking-effort-slide-bar`（Loader 行 id / 模块名 / 控制台标签 / 安装卸载命令 / tarball 名全部同步）；安装命令改为 `github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.0`。**升级自 v1.3.2 及更早版本**：旧包名 `dsh-effort-switcher` 与新包名是不同 bundle，请先 `dsh plugin remove dsh-effort-switcher` 再安装新版，避免两个 bundle 并存。

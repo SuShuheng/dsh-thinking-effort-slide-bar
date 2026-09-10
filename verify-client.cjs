@@ -175,6 +175,7 @@ const styleTags = [];
 const context = vm.createContext({
     window: {
         innerWidth: 500,
+        innerHeight: 320,
         __ModuleLoader__: {
             load({ id, factory }) {
                 captured = factory((specifier) => {
@@ -198,7 +199,7 @@ if (!captured) throw new Error("client module did not register");
 // 0. Styles must be injected at module load (original bundles do this at top level)
 const styleTag = styleTags.find((tag) => tag.dataset.pluginCss === "dsh-thinking-effort-slide-bar/seat.css");
 if (!styleTag) throw new Error("style tag not injected at module load");
-if (!styleTag.textContent.includes("border-radius: 22px")) throw new Error("trigger radius missing from injected css");
+if (!styleTag.textContent.includes("border-radius: 16px")) throw new Error("trigger radius missing from injected css");
 if (!styleTag.textContent.includes("--dsw-alias-label-secondary")) throw new Error("dsh tokens missing from injected css");
 if (!styleTag.textContent.includes("scrollbar-width: none")) throw new Error("scrollbar must be hidden");
 if (!styleTag.textContent.includes("::-webkit-scrollbar")) throw new Error("webkit scrollbar hide rule missing");
@@ -221,9 +222,9 @@ if (!styleTag.textContent.includes("transition: opacity .315s ease")) {
 if ((styleTag.textContent.match(/background: rgb\(255 255 255 \/ 38%\)/g) || []).length < 2) {
     throw new Error("inactive and active slider dots must share the same subdued style");
 }
-if (!styleTag.textContent.includes("background: #4c8dff")) throw new Error("fill must use the reference blue");
-if (!styleTag.textContent.includes("linear-gradient(90deg, #4c8dff 0%, #7b6cff 52%, #b56bff 100%)")) {
-    throw new Error("last notch must use the blue-to-purple reference gradient");
+if (!styleTag.textContent.includes("background: var(--dsh-es-accent, #bfd993)")) throw new Error("fill must use the reference sage accent");
+if (!styleTag.textContent.includes("linear-gradient(90deg, #a9c96e 0%, #cbe395 100%)")) {
+    throw new Error("last notch must use the subtle sage terminal gradient");
 }
 const thumbBlock = styleTag.textContent.match(/\.dsh-es-slider::-webkit-slider-thumb\s*\{[^}]*\}/)?.[0] ?? "";
 if (thumbBlock.includes("border: 1px solid")) throw new Error("thumb must not have a colored ring");
@@ -233,12 +234,13 @@ if (!styleTag.textContent.includes(".dsh-es-sliderFill")) throw new Error("slide
 if (!styleTag.textContent.includes(".dsh-es-sliderTicks")) throw new Error("slider must render embedded notch markers");
 if (!styleTag.textContent.includes("z-index: 3")) throw new Error("native input must sit above the visual rail");
 if (!styleTag.textContent.includes("accent-color: transparent")) throw new Error("native slider accent must not paint leftover fill");
-const modelMenuCss = styleTag.textContent.match(/\.dsh-es-modelMenu\s*\{[^}]*\}/)?.[0] ?? "";
-if (!modelMenuCss.includes("width: min(240px, calc(100vw - 32px))")) {
-    throw new Error("secondary model menu must share the main panel width");
+const menuCss = styleTag.textContent.match(/\.dsh-es-menu\s*\{[^}]*\}/)?.[0] ?? "";
+if (!menuCss.includes("width: min(258px, calc(100vw - 24px))")) {
+    throw new Error("popover must use the compact reference width");
 }
 if (!styleTag.textContent.includes(".dsh-es-menuItemName")) throw new Error("model names need a dedicated flexible label");
 if (!styleTag.textContent.includes(".dsh-es-menuItemInfo")) throw new Error("described model items need an info marker");
+if (!styleTag.textContent.includes(".dsh-es-modelPickerHeader")) throw new Error("model picker needs a back header");
 if (styleTag.textContent.includes(".dsh-es-menuItemDesc")) throw new Error("model descriptions must not render inline");
 
 function find(node, predicate) {
@@ -357,7 +359,7 @@ if (typeof menuStyle.bottom !== "string" || !menuStyle.bottom.includes("100%")) 
     throw new Error(`menu must float above trigger (bottom: calc(100% + 8px)), got ${JSON.stringify(menuStyle)}`);
 }
 
-// 7. Model picker is a secondary floating window: closed by default, slider always visible
+// 7. The compact effort view owns the popover by default.
 const modelRow = find(menu, (n) => n.props?.className === "dsh-es-modelRow");
 const divider = find(menu, (n) => n.props?.className === "dsh-es-menuDivider");
 const sliderWrap = find(menu, (n) => n.props?.className === "dsh-es-sliderWrap");
@@ -375,7 +377,8 @@ if (!modelRowChevron || modelRowChevron.type !== "svg") {
 }
 if (menuText.includes("▾") || menuText.includes("▴")) throw new Error("text chevron glyphs must not be rendered");
 
-// 8. Open the secondary menu (click the model row) and re-render
+// 8. Open the model view in-place. It must replace the slider rather than
+//     creating a second floating window.
 modelRow.props.onClick();
 beginRender();
 tree = registered.component({
@@ -386,18 +389,21 @@ tree = registered.component({
     select: face.select
 });
 const menu2 = find(tree, (n) => n.props?.className === "dsh-es-menu");
-const sliderWrap2 = find(menu2, (n) => n.props?.className === "dsh-es-sliderWrap");
+let sliderWrap2 = find(menu2, (n) => n.props?.className === "dsh-es-sliderWrap");
 const divider2 = find(menu2, (n) => n.props?.className === "dsh-es-menuDivider");
-if (!sliderWrap2 || !divider2) throw new Error("slider must stay visible while the model list is open");
+if (sliderWrap2 || divider2) throw new Error("slider and divider must be hidden while the model list is open");
 
-// The secondary window is a separate floating popover above the main panel.
-const modelMenu = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
-if (!modelMenu) throw new Error("secondary model window not rendered");
+// The same popover remains above the trigger while its content changes.
+const modelMenu = menu2;
 const modelMenuStyle = modelMenu.props.style || {};
 if (modelMenuStyle.position !== "absolute") throw new Error("secondary window must be position:absolute");
 if (typeof modelMenuStyle.bottom !== "string" || !modelMenuStyle.bottom.includes("100%")) {
-    throw new Error(`secondary window must float above the panel, got ${JSON.stringify(modelMenuStyle)}`);
+    throw new Error(`model view must float above the trigger, got ${JSON.stringify(modelMenuStyle)}`);
 }
+const modelPickerHeader = find(modelMenu, (n) => n.props?.className === "dsh-es-modelPickerHeader");
+if (!modelPickerHeader) throw new Error("model view must expose a back header");
+const modelList2 = find(modelMenu, (n) => n.props?.className === "dsh-es-modelList");
+if (!modelList2) throw new Error("model list must render inside the main popover");
 const listText = text(modelMenu);
 if (!listText.includes("MiMo")) throw new Error("model list must contain the Xiaomi model group");
 const deepseekItem = find(modelMenu, (n) => n.props?.type === "button" && text(n).includes("DeepSeek-V4-Flash"));
@@ -451,7 +457,24 @@ if (!fallbackTip || fallbackTip.props.style.left !== "122px") {
 }
 const fallbackItem = find(tree, (n) => n.props?.type === "button" && text(n).includes("DeepSeek-V4-Flash"));
 if (!fallbackItem) throw new Error("described model must remain available after tooltip repositioning");
-fallbackItem.props.onMouseLeave();
+fallbackItem.props.onMouseEnter({
+    currentTarget: { getBoundingClientRect: () => ({ left: 480, right: 500, top: 300, bottom: 320 }) }
+});
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const clampedTip = find(tree, (n) => n.props?.className === "dsh-es-menuItemTip");
+if (!clampedTip || clampedTip.props.style.left !== "272px" || clampedTip.props.style.top !== "192px") {
+    throw new Error(`model annotation must clamp to both viewport edges, got ${JSON.stringify(clampedTip?.props?.style)}`);
+}
+const clampedItem = find(tree, (n) => n.props?.type === "button" && text(n).includes("DeepSeek-V4-Flash"));
+if (!clampedItem) throw new Error("described model must remain available after clamping");
+clampedItem.props.onMouseLeave();
 beginRender();
 tree = registered.component({
     locked: false,
@@ -463,6 +486,21 @@ tree = registered.component({
 if (find(tree, (n) => n.props?.className === "dsh-es-menuItemTip")) {
     throw new Error("model annotation must close when the option is left");
 }
+
+// Return to the effort view before testing the slider. The back control uses
+// the same popover footprint, so this transition must not close the trigger.
+modelPickerHeader.props.onClick();
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const effortMenu = find(tree, (n) => n.props?.className === "dsh-es-menu");
+sliderWrap2 = find(effortMenu, (n) => n.props?.className === "dsh-es-sliderWrap");
+if (!sliderWrap2) throw new Error("back control must restore the effort slider view");
 
 function renderWithDraftImages() {
     beginRender();
@@ -507,16 +545,26 @@ if (!menuForImageTest) {
     menuForImageTest = find(tree, (n) => n.props?.className === "dsh-es-menu");
     if (!menuForImageTest) throw new Error("menu must open for image test");
 }
-// Ensure secondary model menu is open
-let modelMenuForImageTest = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
-if (!modelMenuForImageTest) {
+// Ensure the in-place model view is open
+let modelListForImageTest = find(menuForImageTest, (n) => n.props?.className === "dsh-es-modelList");
+if (!modelListForImageTest) {
     const modelRowForImageTest = find(menuForImageTest, (n) => n.props?.className === "dsh-es-modelRow");
     if (!modelRowForImageTest) throw new Error("model row must be present for image test");
     modelRowForImageTest.props.onClick();
+    beginRender();
+    tree = registered.component({
+        locked: false,
+        available: face.available,
+        directory: face.directory,
+        load: face.load,
+        select: face.select
+    });
+    menuForImageTest = find(tree, (n) => n.props?.className === "dsh-es-menu");
+    modelListForImageTest = find(menuForImageTest, (n) => n.props?.className === "dsh-es-modelList");
 }
 // Now render with draft images (menus stay open via mock state)
 tree = renderWithDraftImages();
-const imagedMenu = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
+const imagedMenu = find(tree, (n) => n.props?.className === "dsh-es-menu");
 const imagedVision = find(imagedMenu, (n) => n.props?.type === "button" && text(n).includes("DeepSeek-V4-Flash-Vision-Exp"));
 if (!imagedVision) throw new Error("DeepSeek Flash Vision Exp model missing after draft image render");
 if (find(imagedVision, (n) => n.props?.className === "dsh-es-menuItemNotice")) {
@@ -536,6 +584,22 @@ const hoverTip = find(tree, (n) => n.props?.className === "dsh-es-menuItemTip");
 if (!hoverTip || !text(hoverTip).includes("当前草稿包含图片")) {
     throw new Error("hover tip must explain the image incompatibility only when draft has images");
 }
+
+// Close the model view before exercising the effort control again.
+const imageModelHeader = find(tree, (n) => n.props?.className === "dsh-es-modelPickerHeader");
+if (!imageModelHeader) throw new Error("image model view back header missing");
+imageModelHeader.props.onClick();
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const sliderMenuAfterImage = find(tree, (n) => n.props?.className === "dsh-es-menu");
+sliderWrap2 = find(sliderMenuAfterImage, (n) => n.props?.className === "dsh-es-sliderWrap");
+if (!sliderWrap2) throw new Error("image model view must return to the effort slider");
 
 // 10. Slider: the native input sits above the reference-style rail, fill,
 // and embedded tick markers. Positions are the current model's effort levels
@@ -724,14 +788,43 @@ if (!offSelection || offSelection.reasoningEffort !== "off") {
     throw new Error(`expected off, got ${JSON.stringify(offSelection)}`);
 }
 
-// 11. Model list must be scrollable (flex child with overflow-y:auto)
-const modelMenu2 = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
+// 11. Model list must be scrollable (flex child with overflow-y:auto) and must
+//     occupy the same in-place popover as the slider.
+const modelRowForScroll = find(tree, (n) => n.props?.className === "dsh-es-modelRow");
+if (!modelRowForScroll) throw new Error("model row missing before scroll test");
+modelRowForScroll.props.onClick();
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const modelMenu2 = find(tree, (n) => n.props?.className === "dsh-es-menu");
 const scrollList = find(modelMenu2, (n) => n.props?.className === "dsh-es-modelList");
-if (!scrollList) throw new Error("model list node missing in secondary window");
+if (!scrollList) throw new Error("model list node missing in in-place popover");
+if (find(modelMenu2, (n) => n.props?.className === "dsh-es-sliderWrap")) {
+    throw new Error("model list view must not render the slider");
+}
 
 // 12. Switching models must reset the local draft so the thumb follows the
 //     real server-side effort (new model's default), not the stale drag.
-sliderHigh.props.onInput({ currentTarget: { value: "2" } });
+const modelPickerHeaderForSwitch = find(modelMenu2, (n) => n.props?.className === "dsh-es-modelPickerHeader");
+if (!modelPickerHeaderForSwitch) throw new Error("model list back header missing before switch test");
+modelPickerHeaderForSwitch.props.onClick();
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const switchEffortMenu = find(tree, (n) => n.props?.className === "dsh-es-menu");
+const switchDraftSource = findRange(switchEffortMenu);
+if (!switchDraftSource) throw new Error("effort slider missing before switch test");
+switchDraftSource.props.onInput({ currentTarget: { value: "2" } });
 beginRender();
 tree = registered.component({
     locked: false,
@@ -742,7 +835,18 @@ tree = registered.component({
 });
 const draftSlider = findRange(tree);
 if (Number(draftSlider.props.value) !== 2) throw new Error("draft should be at low before switching");
-const modelMenu3 = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
+const modelRowForSwitch = find(tree, (n) => n.props?.className === "dsh-es-modelRow");
+if (!modelRowForSwitch) throw new Error("model row missing before model switch");
+modelRowForSwitch.props.onClick();
+beginRender();
+tree = registered.component({
+    locked: false,
+    available: face.available,
+    directory: face.directory,
+    load: face.load,
+    select: face.select
+});
+const modelMenu3 = find(tree, (n) => n.props?.className === "dsh-es-menu");
 const otherItem = find(modelMenu3, (n) => n.props?.type === "button" && text(n).includes("Other Model"));
 if (!otherItem) throw new Error("second model item missing from list");
 const selectBefore = directoryCalls.select.length;
@@ -820,8 +924,8 @@ if (directoryCalls.select.length !== selectsBeforeDefault) {
     throw new Error("default notch must never commit an effort");
 }
 
-// 13. When the host rejects a model switch, the secondary picker must stay
-//     open and surface the returned error instead of silently closing.
+// 13. When the host rejects a model switch, the in-place picker must stay open
+//     and surface the returned error instead of silently closing.
 const failingSelection = { provider: "xiaomi", model: "mimo-v2.5-pro" };
 const modelRowForFail = find(tree, (n) => n.props?.className === "dsh-es-modelRow");
 if (!modelRowForFail) throw new Error("model row missing before failed-switch test");
@@ -865,11 +969,14 @@ tree = registered.component({
     select: face.select
 });
 const menuStillOpen = find(tree, (n) => n.props?.className === "dsh-es-menu");
-const secondaryStillOpen = find(tree, (n) => n.props?.className === "dsh-es-modelMenu");
-if (!menuStillOpen || !secondaryStillOpen) {
-    throw new Error("failed model switch must keep the picker menus open");
+const modelListStillOpen = find(menuStillOpen, (n) => n.props?.className === "dsh-es-modelList");
+if (!menuStillOpen || !modelListStillOpen) {
+    throw new Error("failed model switch must keep the in-place picker open");
 }
-const blockedItem = find(secondaryStillOpen, (n) => n.props?.type === "button" && text(n).includes("MiMo-V2.5-Pro"));
+if (find(menuStillOpen, (n) => n.props?.className === "dsh-es-sliderWrap")) {
+    throw new Error("failed model switch must not reveal the slider behind the picker");
+}
+const blockedItem = find(modelListStillOpen, (n) => n.props?.type === "button" && text(n).includes("MiMo-V2.5-Pro"));
 if (!blockedItem || blockedItem.props["aria-disabled"] !== true) {
     throw new Error("image-incompatible model must be marked unavailable after the host rejects it");
 }
@@ -890,4 +997,4 @@ console.log("all checks passed");
 console.log("- module shape: name/inject/apply ok; slot shadow priority =", registered.options.priority);
 console.log("- trigger label:", triggerLabel);
 console.log("- popover floats above trigger (absolute, bottom: calc(100% + 8px))");
-console.log("- secondary model window floats above the panel; slider submits:", JSON.stringify(selected));
+console.log("- model list replaces the slider in the same popover; slider submits:", JSON.stringify(selected));
