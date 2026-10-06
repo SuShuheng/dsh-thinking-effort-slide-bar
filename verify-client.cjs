@@ -223,9 +223,6 @@ if ((styleTag.textContent.match(/background: rgb\(255 255 255 \/ 38%\)/g) || [])
     throw new Error("inactive and active slider dots must share the same subdued style");
 }
 if (!styleTag.textContent.includes("background: var(--dsh-es-accent, #bfd993)")) throw new Error("fill must use the reference sage accent");
-if (!styleTag.textContent.includes("linear-gradient(90deg, #a9c96e 0%, #cbe395 100%)")) {
-    throw new Error("last notch must use the subtle sage terminal gradient");
-}
 const thumbBlock = styleTag.textContent.match(/\.dsh-es-slider::-webkit-slider-thumb\s*\{[^}]*\}/)?.[0] ?? "";
 if (thumbBlock.includes("border: 1px solid")) throw new Error("thumb must not have a colored ring");
 if (!styleTag.textContent.includes(".dsh-es-sliderRail")) throw new Error("slider must render a dedicated rail layer");
@@ -759,6 +756,14 @@ if (!String(fillLast.props.className).includes("dsh-es-sliderFillMax")) {
 if (!find(fillLast, (n) => n.props?.className === "dsh-es-sliderBloom")) {
     throw new Error("bloom layer must stay mounted so color can fade");
 }
+const maxHead = find(tree, (n) => n.props?.className === "dsh-es-sliderHead");
+if (!text(maxHead).includes("使用更深更强的思考")) {
+    throw new Error("maximum effort must show the requested deeper-thinking hint");
+}
+if (sliderMax.props["aria-valuetext"] !== "max") throw new Error("maximum effort must remain accessible");
+if (!find(fillLast, (n) => n.props?.className === "dsh-es-sliderSparkles")) {
+    throw new Error("maximum effort must show the sparkle animation");
+}
 if (directoryCalls.select.length !== 0) throw new Error("drag must not commit before release");
 // Release commits the declared max level through the same modelDirectories path.
 sliderMax.props.onMouseUp({ currentTarget: { value: "6" } });
@@ -873,6 +878,25 @@ if (Number(afterSwitch.props.value) !== 0) {
 if (Number(afterSwitch.props.max) !== 1) {
     throw new Error(`other model must expose 2 slider positions, got max ${afterSwitch.props.max}`);
 }
+// A model's highest declared effort gets the animation even if its id is medium.
+afterSwitch.props.onInput({ currentTarget: { value: "1" } });
+beginRender();
+tree = registered.component({ locked: false, available: face.available, directory: face.directory, load: face.load, select: face.select });
+if (!find(tree, (n) => n.props?.className === "dsh-es-sliderSparkles")) {
+    throw new Error("highest per-model effort must animate without a literal max id");
+}
+if (!text(find(tree, (n) => n.props?.className === "dsh-es-sliderHead")).includes("使用更深更强的思考")) {
+    throw new Error("highest per-model effort must show the deeper-thinking hint");
+}
+findRange(tree).props.onInput({ currentTarget: { value: "0" } });
+beginRender();
+tree = registered.component({ locked: false, available: face.available, directory: face.directory, load: face.load, select: face.select });
+if (find(tree, (n) => n.props?.className === "dsh-es-sliderSparkles")) {
+    throw new Error("leaving maximum effort must remove the sparkle animation");
+}
+if (text(find(tree, (n) => n.props?.className === "dsh-es-sliderHead")).includes("使用更深更强的思考")) {
+    throw new Error("leaving maximum effort must restore the standard heading");
+}
 
 // 12b. Models WITHOUT reasoning metadata: the slider still renders ONE
 //      fixed "default" notch (read-only, never commits an effort).
@@ -906,6 +930,9 @@ if (defaultSlider.props.disabled !== true) throw new Error("default notch must b
 const defaultFill = findSliderFill(tree);
 if (!defaultFill || String(defaultFill.props.className).includes("dsh-es-sliderFillMax")) {
     throw new Error("default notch must not fake the terminal bloom");
+}
+if (find(tree, (n) => n.props?.className === "dsh-es-sliderSparkles")) {
+    throw new Error("read-only off notch must not show sparkles");
 }
 if (defaultFill.props.style.width !== "calc(100% + -15px)") {
     throw new Error(`default notch fill must span the rail, got ${defaultFill.props.style.width}`);

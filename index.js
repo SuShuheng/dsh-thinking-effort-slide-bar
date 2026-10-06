@@ -338,6 +338,19 @@ window.__ModuleLoader__.load({
     color: var(--dsh-es-accent, #bfd993);
     font-weight: 600;
 }
+.dsh-es-sliderHead[data-max="true"] {
+    position: relative;
+    justify-content: center;
+    color: #c69bae;
+}
+.dsh-es-sliderHead[data-max="true"] strong {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
 .dsh-es-sliderRail {
     position: relative;
     height: 26px;
@@ -371,12 +384,32 @@ window.__ModuleLoader__.load({
 .dsh-es-sliderBloom {
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, #a9c96e 0%, #cbe395 100%);
+    background: linear-gradient(90deg, #acc77f 0%, #acc77f 15%, #897647 32%, #b88298 48%, #cf92b6 62%, #b7859f 78%, #aabd7c 100%);
+    background-size: 220% 100%;
+    background-position: 0% 50%;
     opacity: 0;
     transition: opacity .315s ease;
 }
 .dsh-es-sliderFillMax .dsh-es-sliderBloom {
     opacity: 1;
+    animation: dsh-es-bloom-enter .8s ease-out both, dsh-es-bloom-flow 6s ease-in-out infinite alternate;
+}
+.dsh-es-sliderSparkles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.dsh-es-sliderSparkle {
+    position: absolute;
+    left: var(--spark-x);
+    top: var(--spark-y);
+    width: var(--spark-size);
+    height: var(--spark-size);
+    border-radius: 50%;
+    background: #fff9ee;
+    box-shadow: 0 0 3px rgb(255 242 223 / 40%);
+    opacity: .45;
+    animation: dsh-es-sparkle-drift var(--spark-duration) ease-in-out var(--spark-delay) infinite;
 }
 .dsh-es-sliderKnob {
     position: absolute;
@@ -498,9 +531,38 @@ window.__ModuleLoader__.load({
     .dsh-es-menuItem,
     .dsh-es-sliderKnob,
     .dsh-es-sliderFill,
-    .dsh-es-sliderBloom {
+    .dsh-es-sliderBloom,
+    .dsh-es-sliderFillMax .dsh-es-sliderBloom,
+    .dsh-es-sliderSparkle {
         animation: none;
         transition: none;
+    }
+    .dsh-es-sliderFillMax .dsh-es-sliderBloom {
+        background-position: 75% 50%;
+    }
+}
+@keyframes dsh-es-bloom-enter {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes dsh-es-bloom-flow {
+    0% { background-position: 0% 50%; }
+    18% { background-position: 60% 50%; }
+    55% { background-position: 72% 50%; }
+    100% { background-position: 52% 50%; }
+}
+@keyframes dsh-es-sparkle-drift {
+    0%, 100% {
+        opacity: .12;
+        transform: translate3d(3px, 1px, 0) scale(.65);
+    }
+    45% {
+        opacity: .85;
+        transform: translate3d(-2px, -2px, 0) scale(1);
+    }
+    75% {
+        opacity: .4;
+        transform: translate3d(-5px, 1px, 0) scale(.8);
     }
 }
 @keyframes dsh-es-pop {
@@ -536,6 +598,14 @@ window.__ModuleLoader__.load({
         // Frontend display names are the FIXED key vocabulary; the none value
         // renders as "off" (default = off / value none).
         const EFFORT_LABEL = { none: "off", off: "off", minimal: "minimal", low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" };
+        // Fixed seeds keep the glints in place across drag/store re-renders.
+        const MAX_SPARKLES = Array.from({ length: 18 }, (_, index) => ({
+            "--spark-x": `${7 + (index * 37) % 88}%`,
+            "--spark-y": `${22 + (index * 29) % 58}%`,
+            "--spark-size": `${index % 5 === 0 ? 2.4 : index % 3 === 0 ? 1.8 : 1.2}px`,
+            "--spark-duration": `${2.4 + (index % 4) * .6}s`,
+            "--spark-delay": `${-index * .37}s`
+        }));
 
         function effortValue(id) {
             return id === "off" ? "none" : id;
@@ -934,8 +1004,8 @@ window.__ModuleLoader__.load({
             const maxIndex = levels.length - 1;
             const singleNotch = levels.length <= 1;
             const fillPct = singleNotch ? 100 : Math.round((displayedIndex / maxIndex) * 100);
-            // A single notch is the only option and must never fake the
-            // terminal blue->purple bloom reserved for the real max level.
+            // Use this model's highest declared level, even when its id isn't
+            // "max". A single read-only notch never gets the animated treatment.
             const atMax = !singleNotch && displayedIndex >= levels.length - 1;
             const thumbRadius = 15;
             const travel = `calc(${fillPct}% + ${Math.round(thumbRadius - (thumbRadius * 2 * fillPct) / 100)}px)`;
@@ -956,8 +1026,8 @@ window.__ModuleLoader__.load({
                     { className: "dsh-es-sliderWrap" },
                     react.createElement(
                         "div",
-                        { className: "dsh-es-sliderHead" },
-                        react.createElement("span", null, "推理强度"),
+                        { className: "dsh-es-sliderHead", "data-max": atMax ? "true" : undefined },
+                        react.createElement("span", null, atMax ? "使用更深更强的思考" : "推理强度"),
                         react.createElement("strong", null, displayedLevel === undefined ? currentEffort : levelName(displayedLevel))
                     ),
                     react.createElement(
@@ -970,7 +1040,15 @@ window.__ModuleLoader__.load({
                             react.createElement("div", {
                                 className: atMax ? "dsh-es-sliderFill dsh-es-sliderFillMax" : "dsh-es-sliderFill",
                                 style: { width: fillWidth }
-                            }, react.createElement("div", { className: "dsh-es-sliderBloom" }))
+                            }, react.createElement("div", { className: "dsh-es-sliderBloom" },
+                                atMax ? react.createElement("div", { className: "dsh-es-sliderSparkles" },
+                                    MAX_SPARKLES.map((style, index) => react.createElement("span", {
+                                        key: index,
+                                        className: "dsh-es-sliderSparkle",
+                                        style
+                                    }))
+                                ) : null
+                            ))
                         ),
                         react.createElement(
                             "div",
@@ -1002,7 +1080,8 @@ window.__ModuleLoader__.load({
                             onMouseUp: commitEffort,
                             onTouchEnd: commitEffort,
                             onKeyUp: onSliderKeyUp,
-                            "aria-label": "推理强度"
+                            "aria-label": "推理强度",
+                            "aria-valuetext": displayedLevel === undefined ? currentEffort : levelName(displayedLevel)
                         })
                     ),
                     displayedLevel?.description
