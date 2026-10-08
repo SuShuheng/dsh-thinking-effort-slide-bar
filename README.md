@@ -12,7 +12,7 @@
 ## 兼容性
 
 - **官方 DSH**：`0.1.2-alpha.1`（当前最新 release）及其兼容实现，Web profile 与 CLI 均可运行。
-- **DSH Desktop**：随应用锁定的上游即 `0.1.2-alpha.1`，本插件作为普通 Web Client bundle 安装进 Desktop profile 即可，无需任何 Desktop 专属改造。**已在 DSH Desktop（desktop profile）实测可用**；v1.5.3 延续相同的兼容路径。
+- **DSH Desktop**：随应用锁定的上游即 `0.1.2-alpha.1`，本插件作为普通 Web Client bundle 安装进 Desktop profile 即可，无需任何 Desktop 专属改造。**已在 DSH Desktop（desktop profile）实测可用**；v1.5.4 延续相同的兼容路径。
 - **组合方式**：只依赖官方 DSH contract —— `dsh.client` 客户端声明、`slots`（`conversation.input.model`）与 `slots` / `modelDirectories` / `sessions` / `remote` / `remote.session` 服务。不借用 `desktopRuntime`、`desktopPnpmBootstrap`、`desktopProfiles`、`desktopPnpm` 或任何 Electron API，因此**桌面壳、普通 Web 与 CLI 共用同一条兼容路径**。
 
 ## 要求
@@ -64,7 +64,11 @@ llm-pi-ai:
 
 - 滑块档位 = 该模型声明的档位；拖动后提交 `reasoningEffort` = 档位**数值**（如 `off`、`minimal`、`xhigh`、`max`），由 Host 校验并作用于后续请求。
 - 单档 `off`（值 none）：只读展示，不向 Host 提交任何 effort 变更。
-- 当前模型的最高可调档位会显示绿色、金色与粉色流动渐变及细小闪烁光点，上方提示为「使用更深更强的思考」。最高档按模型实际声明的档位判断，无需命名为 `max`；离开最高档恢复普通绿色轨道。单档只读模式不播放动画；系统开启减少动态效果时显示静态渐变。
+- 鼠标、触摸与触控笔拖动时，旋钮和填充连续跟随指针；松手后以 180ms 吸附最近档位并提交一次。指针移出轨道后仍可松手；取消拖动会恢复已生效档位。方向键和 Home/End 保留原生键盘操作，提交完成后恢复因禁用而丢失的滑条焦点。
+- 配色保留绿色、金色与粉色。按当前模型的相对位置逐渐增强光效：前 1/3 保持绿色，之后淡入背景光效、扫光和横向星尘；星尘从 0 增至 18 颗，穿行时间随强度由约 6s 缩短至 2.4s（个体差异 ±4%）。星尘与背景独立分层，固定分布和初始进度，变速保留当前动画进度。
+- 当前模型的最高可调档位仍显示档位名称，同时提示「使用更深更强的思考」。最高档按模型实际声明的档位判断，无需命名为 `max`；例如只有 low/medium 两档的模型，medium 为最高档。
+- 展开面板的档位名称和轨道配色联动；收起按钮只按宿主已确认的档位着色，Off 保持主题灰色。浅色主题使用深色文字，深色主题使用亮色文字，避免直接将浅色轨道颜色用于文字。
+- 提交期间保持目标位置并暂时禁用重复操作；宿主拒绝时回退真实档位并显示原因。单档只读模式不播放动画；面板关闭或切到模型列表时动画元素卸载。系统开启减少动态效果时禁用星尘、扫光和位置过渡，保留静态渐变和焦点提示。
 - 修改 `settings.yaml` 后 Host 目录会在 `settings/document-updated` 事件时刷新，重新打开面板即可看到新档位，无需重启 `dsh web`。
 - 插件不直接解析 `settings.yaml`：成品目录由 Host 权威解析，滑块只消费 `reasoning.efforts`（`id`=数值、`name`=用户键名），与官方 `/model` 弹窗及 Host 校验保持一致。
 
@@ -75,19 +79,19 @@ llm-pi-ai:
 Web profile：
 
 ```powershell
-dsh plugin --profile web add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.3
+dsh plugin --profile web add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.4
 ```
 
 DSH Desktop（托盘「Open DSH Terminal」，裸 `dsh` 默认作用于当前激活 profile）：
 
 ```powershell
-dsh plugin add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.3
+dsh plugin add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.4
 ```
 
 也可以显式指定 desktop profile：
 
 ```powershell
-dsh plugin --profile desktop add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.3
+dsh plugin --profile desktop add github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.4
 ```
 
 ### 方式二：tarball 安装（无构建步骤，无需 allowBuilds 白名单）
@@ -95,15 +99,15 @@ dsh plugin --profile desktop add github:SuShuheng/dsh-thinking-effort-slide-bar#
 直接安装 Release 资产（推荐）：
 
 ```powershell
-dsh plugin --profile web add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.5.3/dsh-thinking-effort-slide-bar-1.5.3.tgz
-dsh plugin --profile desktop add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.5.3/dsh-thinking-effort-slide-bar-1.5.3.tgz
+dsh plugin --profile web add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.5.4/dsh-thinking-effort-slide-bar-1.5.4.tgz
+dsh plugin --profile desktop add https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/download/v1.5.4/dsh-thinking-effort-slide-bar-1.5.4.tgz
 ```
 
-也可以从 [Releases](https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases) 页面下载 `dsh-thinking-effort-slide-bar-1.5.3.tgz`（或 `npm pack` 自行打包）后本地安装：
+也可以从 [Releases](https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases) 页面下载 `dsh-thinking-effort-slide-bar-1.5.4.tgz`（或 `npm pack` 自行打包）后本地安装：
 
 ```powershell
-dsh plugin --profile web add ./dsh-thinking-effort-slide-bar-1.5.3.tgz
-dsh plugin --profile desktop add ./dsh-thinking-effort-slide-bar-1.5.3.tgz
+dsh plugin --profile web add ./dsh-thinking-effort-slide-bar-1.5.4.tgz
+dsh plugin --profile desktop add ./dsh-thinking-effort-slide-bar-1.5.4.tgz
 ```
 
 ### 方式三：直接锚定 commit（跟随最新源码）
@@ -144,7 +148,7 @@ npm run check   # 语法检查（index.js / host.js / verify-client.cjs）
 npm test        # 无真实 DSH 的客户端行为验证（verify-client.cjs）
 ```
 
-`npm test` 在 vm 中加载客户端 bundle，以最小 React shim 渲染 `EffortSliderSeat`，验证：官方客户端模块形状（`name`/`inject`/`apply`，无旧版 Config 平面）、以负数 priority 影子替换官方 seat（官方为 0）、注入 face 暴露 `available`/`directory`/`load`/`select`、从输入区上方出现的单一浮层及其模型/强度互斥视图、滑块拖拽/提交/换模型重置、当前模型最高档的光点及提示文字（包括最高档为 `medium` 的模型）、离开最高档及单档只读时不显示光点、失败选择保留菜单并显示错误、草稿含图片时的模型提示等。
+`npm test` 在 vm 中加载客户端 bundle，以最小 React shim 渲染 `EffortSliderSeat`，验证：官方客户端模块形状（`name`/`inject`/`apply`，无旧版 Config 平面）、以负数 priority 影子替换官方 seat（官方为 0）、注入 face 暴露 `available`/`directory`/`load`/`select`、从输入区上方出现的单一浮层及其模型/强度互斥视图、连续指针位置/松手吸附/单次提交/取消及丢失指针捕获、提交失败回退与延迟确认、键盘焦点恢复且不抢占其他控件、换模型及关闭面板重置、渐进星尘数量/变速保持进度/最高档名称（包括最高档为 `medium` 的模型）、单档只读及锁定模式、失败模型选择保留菜单并显示错误、草稿含图片时的模型提示等。
 
 从本地 checkout 链入 profile 进行迭代：
 
@@ -176,7 +180,7 @@ README.md          安装与合规说明。
 
 ### 已安装但仍显示官方模型入口（未出现滑块）
 
-「安装成功」不等于「客户端已生效」：bundle 行进入 Host 组合后，Web Client 启动图还要发现并激活客户端包，我们的 seat 才能在 slot 里胜出。**已知根因之一已在 v1.3.2 修复**（插件客户端缺少 `remote` / `remote.session` 注入，`modelDirectories.directoryFor` 抛 `cannot get property "remote.session" without inject` 后被渲染器隔离、回退官方 seat）——请先安装最新版（v1.5.3，包名 `dsh-thinking-effort-slide-bar`），再按顺序排查：
+「安装成功」不等于「客户端已生效」：bundle 行进入 Host 组合后，Web Client 启动图还要发现并激活客户端包，我们的 seat 才能在 slot 里胜出。**已知根因之一已在 v1.3.2 修复**（插件客户端缺少 `remote` / `remote.session` 注入，`modelDirectories.directoryFor` 抛 `cannot get property "remote.session" without inject` 后被渲染器隔离、回退官方 seat）——请先安装最新版（v1.5.4，包名 `dsh-thinking-effort-slide-bar`），再按顺序排查：
 
 1. **完全重启 DSH Desktop**（托盘「退出」而非关窗；Windows 下确认没有残留 `dsh-desktop` 进程），再重新打开窗口并 **Ctrl+Shift+R 硬刷新**。插件必须在 Host 启动时进入 Loader 组合，仅刷新页面不会加载。
 2. 打开页面 DevTools Console（F12），搜索：
@@ -194,6 +198,7 @@ README.md          安装与合规说明。
 
 ## 更新日志
 
+- **v1.5.4**：升级连续拖动与渐进暖色光效。鼠标、触摸与触控笔拖动即时跟手，松手以 180ms 吸附并单次提交；绿—金—粉渐变、扫光与最多 18 颗横向星尘独立分层，变速保持动画进度。最高档名称保持可见，档位文字按主题着色，收起按钮仅显示宿主已确认档位。补齐取消拖动、失败回退、延迟确认、旧请求隔离、Off/none 去重及键盘焦点恢复；减少动态效果时保留静态渐变，恢复时同步粒子速率。语法与行为验证及隔离预览的 26 项 Chromium 验收通过（实际宿主安装未在本轮验证）。
 - **v1.5.3**：参考 Codex 录屏，为当前模型的最高可调思考档位增加绿色、金色与粉色流动渐变及细小漂移闪烁光点；最高档提示改为「使用更深更强的思考」。按模型声明的最高档触发，无需档位命名为 `max`；离开最高档恢复普通轨道，单档只读模式不播放动画。支持系统减少动态效果设置，并补充滑块档位的无障碍文本与最高档行为自检。
 - **v1.5.2**：修复模型说明框贴近窗口边缘时的溢出；模型列表改为与推理强度滑块互斥的同一上浮面板视图；滑块面板改用参考图的紧凑圆角深色样式与鼠尾草绿色轨道，并补充当前模型勾选状态。
 - **v1.5.1**：优化模型选择浮层与模型列表布局。二级模型菜单与主菜单统一对齐；模型名称不再被同一行的说明文本挤压；模型说明改为悬浮注释框，并支持键盘聚焦和窄屏自动换侧。

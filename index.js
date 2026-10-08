@@ -56,8 +56,13 @@ window.__ModuleLoader__.load({
     overflow: hidden;
 }
 .dsh-es-triggerEffort {
-    color: var(--dsw-alias-label-caption);
+    color: var(--dsh-es-effort-light, var(--dsw-alias-label-caption));
     flex: none;
+    transition: color .2s ease;
+}
+body[data-ds-dark-theme] .dsh-es-triggerEffort,
+body[data-ds-dark-theme] .dsh-es-sliderHead strong {
+    color: var(--dsh-es-effort-dark, var(--dsw-alias-label-caption));
 }
 .dsh-es-chevron {
     color: var(--dsw-alias-label-caption);
@@ -335,21 +340,13 @@ window.__ModuleLoader__.load({
     color: var(--dsw-alias-label-secondary);
 }
 .dsh-es-sliderHead strong {
-    color: var(--dsh-es-accent, #bfd993);
+    color: var(--dsh-es-effort-light, var(--dsw-alias-label-primary));
     font-weight: 600;
+    flex: none;
+    transition: color .2s ease;
 }
-.dsh-es-sliderHead[data-max="true"] {
-    position: relative;
-    justify-content: center;
-    color: #c69bae;
-}
-.dsh-es-sliderHead[data-max="true"] strong {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+.dsh-es-sliderHead[data-max="true"] > span {
+    color: var(--dsw-alias-label-secondary);
 }
 .dsh-es-sliderRail {
     position: relative;
@@ -379,37 +376,57 @@ window.__ModuleLoader__.load({
     z-index: 1;
     overflow: hidden;
     background: var(--dsh-es-accent, #bfd993);
-    transition: width .315s ease;
+    transition: width .18s ease-out;
+}
+.dsh-es-sliderBloom, .dsh-es-sliderSparkles {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    overflow: hidden;
+    pointer-events: none;
+    transition: opacity .2s ease;
 }
 .dsh-es-sliderBloom {
+    background: linear-gradient(90deg, #acc77f, #b99a59 42%, #cf92b6);
+    opacity: var(--dsh-es-energy, 0);
+}
+.dsh-es-sliderSweep {
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, #acc77f 0%, #acc77f 15%, #897647 32%, #b88298 48%, #cf92b6 62%, #b7859f 78%, #aabd7c 100%);
-    background-size: 220% 100%;
-    background-position: 0% 50%;
-    opacity: 0;
-    transition: opacity .315s ease;
-}
-.dsh-es-sliderFillMax .dsh-es-sliderBloom {
-    opacity: 1;
-    animation: dsh-es-bloom-enter .8s ease-out both, dsh-es-bloom-flow 6s ease-in-out infinite alternate;
+    background: linear-gradient(105deg, transparent 25%, rgb(255 249 238 / 24%) 50%, transparent 75%);
+    animation: dsh-es-sweep 4s linear infinite;
 }
 .dsh-es-sliderSparkles {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
+    opacity: var(--dsh-es-stars-opacity, 0);
 }
 .dsh-es-sliderSparkle {
     position: absolute;
-    left: var(--spark-x);
+    left: 0;
+    right: 0;
     top: var(--spark-y);
-    width: var(--spark-size);
-    height: var(--spark-size);
+    height: 3px;
+    margin-top: -1.5px;
+    animation: dsh-es-star-travel var(--spark-duration) linear var(--spark-delay) infinite;
+}
+.dsh-es-sliderSparkleDot {
+    position: absolute;
+    left: calc(100% + 4px);
+    width: 3px;
+    height: 3px;
     border-radius: 50%;
     background: #fff9ee;
     box-shadow: 0 0 3px rgb(255 242 223 / 40%);
-    opacity: .45;
-    animation: dsh-es-sparkle-drift var(--spark-duration) ease-in-out var(--spark-delay) infinite;
+    opacity: var(--spark-brightness);
+    transform: scale(var(--spark-brightness));
+}
+.dsh-es-sliderRail[data-energy="false"] .dsh-es-sliderSweep,
+.dsh-es-sliderRail[data-energy="false"] .dsh-es-sliderSparkle,
+.dsh-es-sliderSparkle[data-visible="false"] {
+    animation-play-state: paused;
+}
+.dsh-es-sliderRail[data-dragging="true"] .dsh-es-sliderFill,
+.dsh-es-sliderRail[data-dragging="true"] .dsh-es-sliderKnob {
+    transition: none;
 }
 .dsh-es-sliderKnob {
     position: absolute;
@@ -420,7 +437,7 @@ window.__ModuleLoader__.load({
     margin-left: -15px;
     pointer-events: none;
     transform: translateY(-50%);
-    transition: left .315s ease;
+    transition: left .18s ease-out;
 }
 .dsh-es-sliderKnobFace {
     width: 100%;
@@ -449,10 +466,10 @@ window.__ModuleLoader__.load({
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: rgb(255 255 255 / 38%);
+    background: rgb(255 255 255 / 26%);
 }
 .dsh-es-sliderTickActive {
-    background: rgb(255 255 255 / 38%);
+    background: rgb(255 255 255 / 50%);
 }
 .dsh-es-slider {
     -webkit-appearance: none;
@@ -470,6 +487,7 @@ window.__ModuleLoader__.load({
     background: transparent;
     cursor: pointer;
     outline: none;
+    touch-action: none;
     accent-color: transparent;
     color: transparent;
 }
@@ -524,46 +542,25 @@ window.__ModuleLoader__.load({
     line-height: 15px;
 }
 @media (prefers-reduced-motion: reduce) {
-    .dsh-es-menu,
-    .dsh-es-trigger,
-    .dsh-es-modelRow,
-    .dsh-es-modelPickerHeader,
-    .dsh-es-menuItem,
-    .dsh-es-sliderKnob,
-    .dsh-es-sliderFill,
-    .dsh-es-sliderBloom,
-    .dsh-es-sliderFillMax .dsh-es-sliderBloom,
-    .dsh-es-sliderSparkle {
+    .dsh-es-menu, .dsh-es-trigger, .dsh-es-triggerEffort,
+    .dsh-es-modelRow, .dsh-es-modelPickerHeader, .dsh-es-menuItem,
+    .dsh-es-chevron, .dsh-es-sliderHead strong, .dsh-es-sliderKnob,
+    .dsh-es-sliderFill, .dsh-es-sliderBloom, .dsh-es-sliderSparkles {
         animation: none;
         transition: none;
     }
-    .dsh-es-sliderFillMax .dsh-es-sliderBloom {
-        background-position: 75% 50%;
+    .dsh-es-sliderSweep, .dsh-es-sliderSparkle {
+        display: none;
+        animation: none;
     }
 }
-@keyframes dsh-es-bloom-enter {
-    from { opacity: 0; }
-    to { opacity: 1; }
+@keyframes dsh-es-star-travel {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(calc(-100% - 8px), 0, 0); }
 }
-@keyframes dsh-es-bloom-flow {
-    0% { background-position: 0% 50%; }
-    18% { background-position: 60% 50%; }
-    55% { background-position: 72% 50%; }
-    100% { background-position: 52% 50%; }
-}
-@keyframes dsh-es-sparkle-drift {
-    0%, 100% {
-        opacity: .12;
-        transform: translate3d(3px, 1px, 0) scale(.65);
-    }
-    45% {
-        opacity: .85;
-        transform: translate3d(-2px, -2px, 0) scale(1);
-    }
-    75% {
-        opacity: .4;
-        transform: translate3d(-5px, 1px, 0) scale(.8);
-    }
+@keyframes dsh-es-sweep {
+    from { transform: translateX(100%); }
+    to { transform: translateX(-100%); }
 }
 @keyframes dsh-es-pop {
     from {
@@ -598,14 +595,41 @@ window.__ModuleLoader__.load({
         // Frontend display names are the FIXED key vocabulary; the none value
         // renders as "off" (default = off / value none).
         const EFFORT_LABEL = { none: "off", off: "off", minimal: "minimal", low: "low", medium: "medium", high: "high", xhigh: "xhigh", max: "max" };
-        // Fixed seeds keep the glints in place across drag/store re-renders.
-        const MAX_SPARKLES = Array.from({ length: 18 }, (_, index) => ({
-            "--spark-x": `${7 + (index * 37) % 88}%`,
-            "--spark-y": `${22 + (index * 29) % 58}%`,
-            "--spark-size": `${index % 5 === 0 ? 2.4 : index % 3 === 0 ? 1.8 : 1.2}px`,
-            "--spark-duration": `${2.4 + (index % 4) * .6}s`,
-            "--spark-delay": `${-index * .37}s`
-        }));
+        const THUMB_RADIUS = 15;
+        const clamp01 = (value) => Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0));
+        const positionFor = (index, count) => count <= 1 ? 1 : clamp01(index / (count - 1));
+        const energyFor = (position) => clamp01((position - 1 / 3) / (2 / 3));
+        const offsetFor = (position) => {
+            const pct = Math.round(clamp01(position) * 100000) / 1000;
+            const inset = Math.round((THUMB_RADIUS - 2 * THUMB_RADIUS * pct / 100) * 1000) / 1000;
+            return `calc(${pct}% + ${inset}px)`;
+        };
+        const mixColor = (from, to, amount) => `rgb(${from.map((v, i) => Math.round(v + (to[i] - v) * clamp01(amount))).join(", ")})`;
+        const paletteColor = (position, colors) => position <= 1 / 3 ? mixColor(colors[0], colors[0], 0)
+            : position <= 2 / 3 ? mixColor(colors[0], colors[1], (position - 1 / 3) * 3)
+            : mixColor(colors[1], colors[2], (position - 2 / 3) * 3);
+        const fillColors = [[191, 217, 147], [185, 154, 89], [207, 146, 182]];
+        const lightTextColors = [[65, 86, 33], [108, 78, 20], [137, 53, 95]];
+        const darkTextColors = [[191, 217, 147], [224, 194, 130], [234, 178, 208]];
+        const effortColors = (position, level) => {
+            if (!level || ["off", "none"].includes(effortValue(level.id))) return {};
+            return {
+                "--dsh-es-effort-light": paletteColor(position, lightTextColors),
+                "--dsh-es-effort-dark": paletteColor(position, darkTextColors)
+            };
+        };
+        const starHash = (index, salt) => (((Math.imul(index + 1, salt * 2654435761) >>> 8) % 1000) / 1000);
+        // Stable identities, decorrelated heights and phases. Keep all stars mounted;
+        // only visibility/playback changes as the draft crosses energy thresholds.
+        const MAX_SPARKLES = Array.from({ length: 18 }, (_, index) => {
+            const duration = 6 * (.96 + .08 * starHash(index, 29));
+            return {
+                "--spark-y": `${8 + ((index * 7) % 18) / 17 * 84}%`,
+                "--spark-brightness": .5 + .5 * starHash(index, 61),
+                "--spark-duration": `${duration}s`,
+                "--spark-delay": `${-((index + 1) * .61803398875 % 1) * duration}s`
+            };
+        });
 
         function effortValue(id) {
             return id === "off" ? "none" : id;
@@ -721,7 +745,16 @@ window.__ModuleLoader__.load({
             const [initialLoading, setInitialLoading] = react.useState(true);
             const [draft, setDraft] = react.useState(-1);
             const [pendingIndex, setPendingIndex] = react.useState(-1);
+            const [reducedMotion, setReducedMotion] = react.useState(() => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
             const rootRef = react.useRef(null);
+            const railRef = react.useRef(null);
+            const pointerRef = react.useRef(null);
+            const positionRef = react.useRef(null);
+            const requestRef = react.useRef(null);
+            const restoreFocusRef = react.useRef(null);
+            const scopeRef = react.useRef(null);
+            const [dragPosition, setDragPosition] = react.useState(null);
+            const [selectionError, setSelectionError] = react.useState(null);
             const inputSnapshot = (useInput ?? defaultUseInput)((s) => s);
             const draftHasImages = inputSnapshot !== null && inputSnapshot !== undefined && (inputSnapshot.imageIds?.length ?? 0) > 0;
 
@@ -766,6 +799,15 @@ window.__ModuleLoader__.load({
             const hideModelAnnotation = () => setHoveredNotice(null);
 
             react.useEffect(() => {
+                if (typeof window.matchMedia !== "function") return;
+                const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+                const update = () => setReducedMotion(media.matches);
+                update();
+                media.addEventListener("change", update);
+                return () => media.removeEventListener("change", update);
+            }, []);
+
+            react.useEffect(() => {
                 if (available) {
                     load().then(() => setInitialLoading(false), () => setInitialLoading(false));
                 }
@@ -806,14 +848,42 @@ window.__ModuleLoader__.load({
                 return undefined;
             }, [state.current?.provider, state.current?.model, state.groups]);
 
-            // A committed model switch replaces the effort server-side; reset the
-            // local draft so the thumb follows the real selection.
+            // A scope change invalidates callbacks before effects run, including
+            // promise completions from the model that has just been replaced.
+            const scopeKey = `${state.current?.provider}\0${state.current?.model}`;
+            scopeRef.current = scopeKey;
+            const clearDrag = () => {
+                const pointer = pointerRef.current;
+                pointerRef.current = null;
+                positionRef.current = null;
+                setDragPosition(null);
+                if (pointer) {
+                    try { pointer.target.releasePointerCapture?.(pointer.id); } catch {}
+                }
+            };
             react.useEffect(() => {
+                clearDrag();
+                requestRef.current = null;
+                restoreFocusRef.current = null;
                 setDraft(-1);
                 setPendingIndex(-1);
-            }, [state.current?.provider, state.current?.model]);
-
-            if (!available) return null;
+                setSelectionError(null);
+            }, [scopeKey]);
+            react.useEffect(() => {
+                if (!open || modelsOpen || locked || !available) {
+                    clearDrag();
+                    setDraft(-1);
+                }
+            }, [open, modelsOpen, locked, available]);
+            react.useEffect(() => () => {
+                scopeRef.current = null;
+                requestRef.current = null;
+                const pointer = pointerRef.current;
+                pointerRef.current = null;
+                if (pointer) {
+                    try { pointer.target.releasePointerCapture?.(pointer.id); } catch {}
+                }
+            }, []);
 
             const busy = state.status === "selecting" || state.status === "loading";
             const currentEffort = state.current?.reasoningEffort
@@ -868,45 +938,116 @@ window.__ModuleLoader__.load({
                 });
             };
 
+            const interactionBlocked = locked || busy || pendingIndex >= 0 || levels.length <= 1;
             const updateDraft = (event) => {
-                setDraft(Number(event.currentTarget.value));
+                if (interactionBlocked || pointerRef.current) return;
+                setSelectionError(null);
+                setDraft(Math.max(0, Math.min(levels.length - 1, Number(event.currentTarget.value))));
             };
 
-            // CSS hover on .dsh-es-sliderRail now handles knob scaling.
-
-            // Commit the live thumb value on release. Keep the local pin until
-            // the store catches up so the knob does not snap back.
-            const commitEffort = (event) => {
-                const nextIndex = Number(event?.currentTarget?.value ?? draft);
-                if (!Number.isFinite(nextIndex) || nextIndex < 0 || busy) return;
+            const commitIndex = (nextIndex) => {
+                if (interactionBlocked || requestRef.current || !Number.isInteger(nextIndex)) return;
                 const nextEffort = levels[nextIndex]?.id;
-                if (nextEffort === undefined || nextEffort === currentEffort) {
+                if (nextEffort === undefined || effortValue(nextEffort) === effortValue(currentEffort)) {
                     setDraft(-1);
-                    setPendingIndex(-1);
                     return;
                 }
-                setDraft(nextIndex);
+                const input = railRef.current?.querySelector?.("input");
+                if (input && document.activeElement === input) restoreFocusRef.current = input;
+                const request = { scope: scopeKey, index: nextIndex };
+                requestRef.current = request;
+                setSelectionError(null);
+                setDraft(-1);
                 setPendingIndex(nextIndex);
-                select({
-                    provider: state.current.provider,
-                    model: state.current.model,
-                    reasoningEffort: nextEffort
-                });
+                const finish = (accepted) => {
+                    if (scopeRef.current !== request.scope || requestRef.current !== request) return;
+                    requestRef.current = null;
+                    if (!accepted) {
+                        setPendingIndex(-1);
+                        setDraft(-1);
+                        setSelectionError(directory.getSnapshot().error || "推理强度切换失败，请重试");
+                    } else if (effortValue(directory.getSnapshot().current?.reasoningEffort) === effortValue(nextEffort)) {
+                        setPendingIndex(-1);
+                    }
+                };
+                try {
+                    select({ provider: state.current.provider, model: state.current.model, reasoningEffort: nextEffort })
+                        .then(finish, () => finish(false));
+                } catch { finish(false); }
             };
 
             react.useEffect(() => {
-                if (pendingIndex < 0) return;
-                if (currentIndex === pendingIndex) {
-                    setDraft(-1);
-                    setPendingIndex(-1);
-                }
+                if (pendingIndex >= 0 && currentIndex === pendingIndex) setPendingIndex(-1);
             }, [currentIndex, pendingIndex]);
+            react.useEffect(() => {
+                if (pendingIndex >= 0) return;
+                const input = restoreFocusRef.current;
+                restoreFocusRef.current = null;
+                // Disabling a focused range sends focus to body. Restore it only
+                // when the user has not deliberately moved to another control.
+                if (open && !modelsOpen && !locked && input?.isConnected && document.activeElement === document.body) input.focus();
+            }, [pendingIndex, open, modelsOpen, locked]);
 
+            const movePointer = (event) => {
+                const rect = railRef.current?.getBoundingClientRect();
+                if (!rect || rect.width <= THUMB_RADIUS * 2) return;
+                const position = clamp01((event.clientX - rect.left - THUMB_RADIUS) / (rect.width - THUMB_RADIUS * 2));
+                positionRef.current = position;
+                setDragPosition(position);
+                setDraft(Math.round(position * (levels.length - 1)));
+            };
+            const onPointerDown = (event) => {
+                if (interactionBlocked || pointerRef.current || event.isPrimary === false || (event.button !== undefined && event.button !== 0)) return;
+                event.preventDefault();
+                event.currentTarget.focus();
+                pointerRef.current = { id: event.pointerId, target: event.currentTarget };
+                setSelectionError(null);
+                try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
+                movePointer(event);
+            };
+            const onPointerMove = (event) => {
+                if (pointerRef.current?.id === event.pointerId) movePointer(event);
+            };
+            const onPointerUp = (event) => {
+                if (pointerRef.current?.id !== event.pointerId) return;
+                movePointer(event);
+                const position = positionRef.current;
+                clearDrag();
+                if (position !== null) commitIndex(Math.round(position * (levels.length - 1)));
+            };
+            const onPointerCancel = (event) => {
+                if (pointerRef.current?.id !== event.pointerId) return;
+                clearDrag();
+                setDraft(-1);
+            };
             const onSliderKeyUp = (event) => {
-                if (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "Home" || event.key === "End") {
-                    commitEffort(event);
+                if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
+                    commitIndex(Number(event.currentTarget.value));
                 }
             };
+
+            const displayedIndex = draft >= 0 ? draft : pendingIndex >= 0 ? pendingIndex : currentIndex;
+            const displayedLevel = levels[displayedIndex];
+            const singleNotch = levels.length <= 1;
+            const shownPosition = dragPosition ?? positionFor(displayedIndex, levels.length);
+            const energy = singleNotch || !open || modelsOpen ? 0 : energyFor(shownPosition);
+            const starCount = Math.round(18 * energy);
+            // updatePlaybackRate preserves currentTime; rewriting CSS duration or
+            // delay on every move would teleport the stars to a new phase.
+            react.useEffect(() => {
+                if (reducedMotion) return;
+                const stars = railRef.current?.querySelectorAll(".dsh-es-sliderSparkle");
+                if (!stars) return;
+                const speed = 6 / (6 - 3.6 * energy);
+                for (const star of stars) {
+                    for (const animation of star.getAnimations?.() ?? []) {
+                        if (animation.animationName !== "dsh-es-star-travel") continue;
+                        if (typeof animation.updatePlaybackRate === "function") animation.updatePlaybackRate(speed);
+                    }
+                }
+            }, [energy, open, modelsOpen, reducedMotion]);
+
+            if (!available) return null;
 
             // Secondary menu: model picker, shown when the model row is clicked.
             if (state.groups.length === 0 && state.status !== "loading" && !initialLoading) {
@@ -997,33 +1138,16 @@ window.__ModuleLoader__.load({
                         })
                     ));
 
-            // Effort view: dragging updates only the local draft (fluid); the
-            // selection is committed on release / keyboard confirm.
-            const displayedIndex = draft >= 0 ? draft : pendingIndex >= 0 ? pendingIndex : currentIndex;
-            const displayedLevel = levels[displayedIndex];
-            const maxIndex = levels.length - 1;
-            const singleNotch = levels.length <= 1;
-            const fillPct = singleNotch ? 100 : Math.round((displayedIndex / maxIndex) * 100);
-            // Use this model's highest declared level, even when its id isn't
-            // "max". A single read-only notch never gets the animated treatment.
-            const atMax = !singleNotch && displayedIndex >= levels.length - 1;
-            const thumbRadius = 15;
-            const travel = `calc(${fillPct}% + ${Math.round(thumbRadius - (thumbRadius * 2 * fillPct) / 100)}px)`;
-            const knobLeft = atMax || levels.length <= 1
-                ? `calc(100% - ${thumbRadius}px)`
-                : fillPct <= 0
-                    ? `${thumbRadius}px`
-                    : travel;
-            // Fill always ends at the knob center; at max that is
-            // calc(100% - 15px), never 100%, so no color bleeds past the knob.
-            const fillWidth = fillPct <= 0
-                ? "0px"
-                : travel;
+            const atMax = !singleNotch && displayedIndex === levels.length - 1;
+            const knobLeft = offsetFor(shownPosition);
+            const fillWidth = shownPosition <= 0 ? "0px" : knobLeft;
+            const color = paletteColor(shownPosition, fillColors);
+            const fillBackground = `linear-gradient(90deg, #bfd993, ${color})`;
 
             const slider = currentChoice !== undefined && levels.length > 0
                 ? react.createElement(
                     "div",
-                    { className: "dsh-es-sliderWrap" },
+                    { className: "dsh-es-sliderWrap", style: effortColors(shownPosition, displayedLevel) },
                     react.createElement(
                         "div",
                         { className: "dsh-es-sliderHead", "data-max": atMax ? "true" : undefined },
@@ -1032,23 +1156,32 @@ window.__ModuleLoader__.load({
                     ),
                     react.createElement(
                         "div",
-                        { className: "dsh-es-sliderRail" },
+                        {
+                            className: "dsh-es-sliderRail",
+                            ref: railRef,
+                            "data-dragging": dragPosition !== null ? "true" : "false",
+                            "data-energy": energy > 0 ? "true" : "false",
+                            style: { "--dsh-es-energy": energy, "--dsh-es-stars-opacity": energy > 0 ? .6 + .4 * energy : 0 }
+                        },
                         react.createElement(
                             "div",
                             { className: "dsh-es-sliderGroove", "aria-hidden": true },
                             react.createElement("div", { className: "dsh-es-sliderTrack" }),
                             react.createElement("div", {
                                 className: atMax ? "dsh-es-sliderFill dsh-es-sliderFillMax" : "dsh-es-sliderFill",
-                                style: { width: fillWidth }
-                            }, react.createElement("div", { className: "dsh-es-sliderBloom" },
-                                atMax ? react.createElement("div", { className: "dsh-es-sliderSparkles" },
+                                style: { width: fillWidth, background: fillBackground }
+                            },
+                                react.createElement("div", { className: "dsh-es-sliderBloom" },
+                                    react.createElement("div", { className: "dsh-es-sliderSweep" })),
+                                react.createElement("div", { className: "dsh-es-sliderSparkles", "aria-hidden": true },
                                     MAX_SPARKLES.map((style, index) => react.createElement("span", {
                                         key: index,
                                         className: "dsh-es-sliderSparkle",
-                                        style
-                                    }))
-                                ) : null
-                            ))
+                                        "data-visible": index < starCount ? "true" : "false",
+                                        style: { ...style, visibility: index < starCount ? "visible" : "hidden" }
+                                    }, react.createElement("span", { className: "dsh-es-sliderSparkleDot" })))
+                                )
+                            )
                         ),
                         react.createElement(
                             "div",
@@ -1074,16 +1207,21 @@ window.__ModuleLoader__.load({
                             max: Math.max(levels.length - 1, 0),
                             step: 1,
                             value: displayedIndex,
-                            disabled: locked || singleNotch,
+                            disabled: interactionBlocked,
                             onInput: updateDraft,
                             onChange: updateDraft,
-                            onMouseUp: commitEffort,
-                            onTouchEnd: commitEffort,
+                            onPointerDown,
+                            onPointerMove,
+                            onPointerUp,
+                            onPointerCancel,
+                            onLostPointerCapture: onPointerCancel,
+                            onBlur: () => { if (draft >= 0 && !pointerRef.current) setDraft(-1); },
                             onKeyUp: onSliderKeyUp,
                             "aria-label": "推理强度",
                             "aria-valuetext": displayedLevel === undefined ? currentEffort : levelName(displayedLevel)
                         })
                     ),
+                    selectionError ? react.createElement("p", { className: "dsh-es-menuError", role: "alert" }, selectionError) : null,
                     displayedLevel?.description
                         ? react.createElement("p", { className: "dsh-es-sliderDesc" }, displayedLevel.description)
                         : null
@@ -1173,7 +1311,7 @@ window.__ModuleLoader__.load({
                     },
                     react.createElement("span", { className: "dsh-es-triggerLabel" }, modelLabel),
                     effortLabel !== undefined
-                        ? react.createElement("span", { className: "dsh-es-triggerEffort" }, effortLabel)
+                        ? react.createElement("span", { className: "dsh-es-triggerEffort", style: effortColors(positionFor(currentIndex, levels.length), currentLevel) }, effortLabel)
                         : null,
                     chevronIcon(ICON_CHEVRON_DOWN, open ? "dsh-es-chevron dsh-es-chevronOpen" : "dsh-es-chevron")
                 ),

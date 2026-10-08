@@ -7,14 +7,25 @@ let captured = null;
 // --- Minimal React shim sufficient to render EffortSliderSeat ---
 const stateValues = new Map();
 let renderSeq = 0;
+let refSeq = 0;
+let effectSeq = 0;
+let stateVersion = 0;
+let enableEffects = false;
+const refValues = new Map();
+const effectValues = new Map();
+let scheduledEffects = [];
 function beginRender() {
     renderSeq = 0;
+    refSeq = 0;
+    effectSeq = 0;
+    scheduledEffects = [];
 }
 function makeState(initial) {
     const key = renderSeq++;
-    if (!stateValues.has(key)) stateValues.set(key, initial);
+    if (!stateValues.has(key)) stateValues.set(key, typeof initial === "function" ? initial() : initial);
     return [stateValues.get(key), (updater) => {
         const next = typeof updater === "function" ? updater(stateValues.get(key)) : updater;
+        if (!Object.is(stateValues.get(key), next)) stateVersion++;
         stateValues.set(key, next);
     }];
 }
@@ -24,9 +35,21 @@ const react = {
         return { type, props: props || {}, children };
     },
     Fragment: Symbol("Fragment"),
-    useEffect() {},
+    useEffect(fn, deps) {
+        const key = effectSeq++;
+        if (!enableEffects) return;
+        const previous = effectValues.get(key);
+        if (!previous || deps.some((dep, i) => !Object.is(dep, previous.deps[i]))) {
+            scheduledEffects.push(() => {
+                previous?.cleanup?.();
+                effectValues.set(key, { deps, cleanup: fn() });
+            });
+        }
+    },
     useRef(initial) {
-        return { current: initial };
+        const key = refSeq++;
+        if (!refValues.has(key)) refValues.set(key, { current: initial });
+        return refValues.get(key);
     },
     useMemo(fn) {
         return fn();
@@ -187,6 +210,8 @@ const context = vm.createContext({
     },
     document: {
         querySelector: () => null,
+        addEventListener() {},
+        removeEventListener() {},
         createElement: () => ({ dataset: {}, textContent: "" }),
         head: { appendChild(node) { styleTags.push(node); } }
     },
@@ -209,20 +234,19 @@ if (!styleTag.textContent.includes("dsh-es-pop")) throw new Error("pop animation
 if (!styleTag.textContent.includes("height: 26px")) throw new Error("slider track must be 26px tall");
 if (!styleTag.textContent.includes("width: 30px")) throw new Error("slider thumb must be 30px wide");
 if (!styleTag.textContent.includes(".dsh-es-sliderKnob")) throw new Error("custom thumb knob missing");
-if (!styleTag.textContent.includes("transition: left .315s ease")) throw new Error("thumb must ease between notches at the last-notch pace");
-if (!styleTag.textContent.includes("transition: width .315s ease")) {
+if (!styleTag.textContent.includes("transition: left .18s ease-out")) throw new Error("thumb must ease between notches at the last-notch pace");
+if (!styleTag.textContent.includes("transition: width .18s ease-out")) {
     throw new Error("fill must ease with the thumb at the last-notch pace");
 }
 if (!styleTag.textContent.includes(".dsh-es-sliderBloom")) {
     throw new Error("terminal color must fade on a dedicated bloom layer");
 }
-if (!styleTag.textContent.includes("transition: opacity .315s ease")) {
+if (!styleTag.textContent.includes("transition: opacity .2s ease")) {
     throw new Error("bloom color fade must be slower than the thumb travel");
 }
-if ((styleTag.textContent.match(/background: rgb\(255 255 255 \/ 38%\)/g) || []).length < 2) {
-    throw new Error("inactive and active slider dots must share the same subdued style");
+if (!styleTag.textContent.includes('data-dragging="true"') || !styleTag.textContent.includes("touch-action: none")) {
+    throw new Error("pointer dragging must be immediate and suppress touch scrolling");
 }
-if (!styleTag.textContent.includes("background: var(--dsh-es-accent, #bfd993)")) throw new Error("fill must use the reference sage accent");
 const thumbBlock = styleTag.textContent.match(/\.dsh-es-slider::-webkit-slider-thumb\s*\{[^}]*\}/)?.[0] ?? "";
 if (thumbBlock.includes("border: 1px solid")) throw new Error("thumb must not have a colored ring");
 if (!styleTag.textContent.includes(".dsh-es-sliderRail")) throw new Error("slider must render a dedicated rail layer");
@@ -257,6 +281,11 @@ function find(node, predicate) {
     }
     return undefined;
 }
+function visibleStars(node) {
+    let count = 0;
+    find(node, (n) => { if (n.props?.className === "dsh-es-sliderSparkle" && n.props["data-visible"] === "true") count++; return false; });
+    return count;
+}
 function findRange(node) {
     return find(node, (n) => n.props?.type === "range");
 }
@@ -272,8 +301,8 @@ function findSliderFill(node) {
 const THUMB_RADIUS = 15;
 const DEMO_LEVEL_COUNT = 7;
 function notchFill(index) {
-    const pct = Math.round((index / (DEMO_LEVEL_COUNT - 1)) * 100);
-    const adj = Math.round(THUMB_RADIUS - (THUMB_RADIUS * 2 * pct) / 100);
+    const pct = Math.round((index / (DEMO_LEVEL_COUNT - 1)) * 100000) / 1000;
+    const adj = Math.round((THUMB_RADIUS - (THUMB_RADIUS * 2 * pct) / 100) * 1000) / 1000;
     return `calc(${pct}% + ${adj}px)`;
 }
 function text(node) {
@@ -617,7 +646,7 @@ if (Number(slider.props.max) !== DEMO_LEVEL_COUNT - 1) {
 }
 const sliderKnob = find(sliderWrap2, (n) => n.props?.className === "dsh-es-sliderKnob");
 if (!sliderKnob) throw new Error("custom slider knob missing");
-if (sliderKnob.props.style.left !== "15px") throw new Error("first notch knob must stay inside the rail");
+if (sliderKnob.props.style.left !== "calc(0% + 15px)") throw new Error("first notch knob must stay inside the rail");
 
 function headLabel(tree, label) {
     const head = find(tree, (n) => n.props?.className === "dsh-es-sliderHead");
@@ -626,7 +655,7 @@ function headLabel(tree, label) {
     }
 }
 
-// Drag to minimal (index 1): the fill follows the knob and stays pure blue.
+// Preview minimal: the fill follows the knob and stays sage green.
 slider.props.onInput({ currentTarget: { value: "1" } });
 beginRender();
 tree = registered.component({
@@ -668,7 +697,7 @@ const knob3 = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
 if (!knob3 || knob3.props.style.left !== fill3.props.style.width) {
     throw new Error("low fill must stay glued to the knob");
 }
-// Drag to medium (index 3): still pure blue.
+// Preview medium: progressively reveals warm energy.
 slider3.props.onInput({ currentTarget: { value: "3" } });
 beginRender();
 tree = registered.component({
@@ -685,9 +714,7 @@ if (fillMid.props.style.width !== notchFill(3)) {
     throw new Error(`medium fill must end at the thumb center, got ${fillMid.props.style.width}`);
 }
 headLabel(tree, "medium");
-if (String(fillMid.props.className).includes("dsh-es-sliderFillMax")) {
-    throw new Error("medium notch must keep the bloom hidden");
-}
+if (visibleStars(tree) !== 5) throw new Error("progressive star density incorrect: expected 5");
 // Drag to high (index 4).
 sliderMid.props.onInput({ currentTarget: { value: "4" } });
 beginRender();
@@ -709,10 +736,8 @@ const knobHigh = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
 if (!knobHigh || knobHigh.props.style.left !== fillHigh.props.style.width) {
     throw new Error("high fill must stay glued to the knob");
 }
-if (String(fillHigh.props.className).includes("dsh-es-sliderFillMax")) {
-    throw new Error("high notch must keep the bloom hidden");
-}
-// Drag to the penultimate notch (xhigh, index 5): remains fully blue.
+if (visibleStars(tree) !== 9) throw new Error("progressive star density incorrect: expected 9");
+// Preview xhigh: stronger energy, below full intensity.
 sliderHigh.props.onInput({ currentTarget: { value: "5" } });
 beginRender();
 tree = registered.component({
@@ -729,9 +754,7 @@ if (fillXhigh.props.style.width !== notchFill(5)) {
     throw new Error(`xhigh fill must end at the thumb center, got ${fillXhigh.props.style.width}`);
 }
 headLabel(tree, "xhigh");
-if (String(fillXhigh.props.className).includes("dsh-es-sliderFillMax")) {
-    throw new Error("penultimate notch must keep the bloom hidden");
-}
+if (visibleStars(tree) !== 14) throw new Error("progressive star density incorrect: expected 14");
 // Drag to the terminal notch (max, index 6): full rail, gradient bloom, knob inside rail.
 sliderXhigh.props.onInput({ currentTarget: { value: "6" } });
 beginRender();
@@ -747,11 +770,11 @@ const fillLast = findSliderFill(tree);
 if (Number(sliderMax.props.value) !== 6) throw new Error("draft must move the thumb to max");
 if (fillLast.props.style.width !== "calc(100% + -15px)") throw new Error("terminal fill must span the full rail");
 const knobMax = find(tree, (n) => n.props?.className === "dsh-es-sliderKnob");
-if (!knobMax || knobMax.props.style.left !== "calc(100% - 15px)") {
+if (!knobMax || knobMax.props.style.left !== "calc(100% + -15px)") {
     throw new Error("last notch knob must stay inside the rail");
 }
-if (!String(fillLast.props.className).includes("dsh-es-sliderFillMax")) {
-    throw new Error("last notch must reveal the bloom layer");
+if (find(tree, (n) => n.props?.className === "dsh-es-sliderRail").props.style["--dsh-es-energy"] !== 1) {
+    throw new Error("last notch must reveal full energy");
 }
 if (!find(fillLast, (n) => n.props?.className === "dsh-es-sliderBloom")) {
     throw new Error("bloom layer must stay mounted so color can fade");
@@ -766,7 +789,7 @@ if (!find(fillLast, (n) => n.props?.className === "dsh-es-sliderSparkles")) {
 }
 if (directoryCalls.select.length !== 0) throw new Error("drag must not commit before release");
 // Release commits the declared max level through the same modelDirectories path.
-sliderMax.props.onMouseUp({ currentTarget: { value: "6" } });
+sliderMax.props.onKeyUp({ key: "End", currentTarget: { value: "6" } });
 const selected = directoryCalls.select[0];
 if (!selected || selected.reasoningEffort !== "max") {
     throw new Error(`expected max, got ${JSON.stringify(selected)}`);
@@ -787,7 +810,7 @@ tree = registered.component({
 const offSlider = findRange(tree);
 if (Number(offSlider.props.value) !== 0) throw new Error("draft must move the thumb back to off");
 headLabel(tree, "off");
-offSlider.props.onMouseUp({ currentTarget: { value: "0" } });
+offSlider.props.onKeyUp({ key: "Home", currentTarget: { value: "0" } });
 const offSelection = directoryCalls.select[directoryCalls.select.length - 1];
 if (!offSelection || offSelection.reasoningEffort !== "off") {
     throw new Error(`expected off, got ${JSON.stringify(offSelection)}`);
@@ -882,7 +905,7 @@ if (Number(afterSwitch.props.max) !== 1) {
 afterSwitch.props.onInput({ currentTarget: { value: "1" } });
 beginRender();
 tree = registered.component({ locked: false, available: face.available, directory: face.directory, load: face.load, select: face.select });
-if (!find(tree, (n) => n.props?.className === "dsh-es-sliderSparkles")) {
+if (visibleStars(tree) !== 18) {
     throw new Error("highest per-model effort must animate without a literal max id");
 }
 if (!text(find(tree, (n) => n.props?.className === "dsh-es-sliderHead")).includes("使用更深更强的思考")) {
@@ -891,7 +914,7 @@ if (!text(find(tree, (n) => n.props?.className === "dsh-es-sliderHead")).include
 findRange(tree).props.onInput({ currentTarget: { value: "0" } });
 beginRender();
 tree = registered.component({ locked: false, available: face.available, directory: face.directory, load: face.load, select: face.select });
-if (find(tree, (n) => n.props?.className === "dsh-es-sliderSparkles")) {
+if (visibleStars(tree) > 0) {
     throw new Error("leaving maximum effort must remove the sparkle animation");
 }
 if (text(find(tree, (n) => n.props?.className === "dsh-es-sliderHead")).includes("使用更深更强的思考")) {
@@ -931,7 +954,7 @@ const defaultFill = findSliderFill(tree);
 if (!defaultFill || String(defaultFill.props.className).includes("dsh-es-sliderFillMax")) {
     throw new Error("default notch must not fake the terminal bloom");
 }
-if (find(tree, (n) => n.props?.className === "dsh-es-sliderSparkles")) {
+if (visibleStars(tree) > 0) {
     throw new Error("read-only off notch must not show sparkles");
 }
 if (defaultFill.props.style.width !== "calc(100% + -15px)") {
@@ -946,7 +969,7 @@ if (!defaultTriggerLabel.includes("DeepSeek-V4-Flash") || !defaultTriggerLabel.i
     throw new Error(`trigger must show model + off, got ${defaultTriggerLabel}`);
 }
 const selectsBeforeDefault = directoryCalls.select.length;
-defaultSlider.props.onMouseUp({ currentTarget: { value: "0" } });
+defaultSlider.props.onKeyUp({ key: "Home", currentTarget: { value: "0" } });
 if (directoryCalls.select.length !== selectsBeforeDefault) {
     throw new Error("default notch must never commit an effort");
 }
@@ -1019,6 +1042,185 @@ snapshot.error = null;
 // 7. Load must be delegated when available
 face.load();
 if (directoryCalls.load !== 1) throw new Error("load not delegated");
+
+// Effect-aware interaction regressions: refs and effects are stable across renders.
+const assert = require("node:assert/strict");
+stateValues.clear();
+refValues.clear();
+enableEffects = true;
+snapshot.current = { provider: "demo", model: "reasoning-model", reasoningEffort: "off" };
+snapshot.status = "ready";
+snapshot.error = null;
+const playback = [];
+const starAnimation = { animationName: "dsh-es-star-travel", currentTime: 1234, updatePlaybackRate(rate) { playback.push(rate); } };
+const focusInput = { isConnected: true, focus() { context.document.activeElement = this; } };
+context.document.body = {};
+const railNode = {
+    querySelector: () => focusInput,
+    getBoundingClientRect: () => ({ left: 100, width: 230 }),
+    querySelectorAll: () => [{ getAnimations: () => [starAnimation] }]
+};
+const captures = [];
+const pointerTarget = {
+    focus() {},
+    setPointerCapture(id) { captures.push(["capture", id]); },
+    releasePointerCapture(id) { captures.push(["release", id]); }
+};
+function renderAdvanced(overrides = {}) {
+    for (let pass = 0; pass < 12; pass++) {
+        beginRender();
+        tree = registered.component({ locked: false, available: true, directory: face.directory, load: face.load, select: face.select, ...overrides });
+        const rail = find(tree, (n) => n.props?.className === "dsh-es-sliderRail");
+        if (rail) rail.props.ref.current = railNode;
+        // Browsers blur a disabled native range; emulate that lifecycle here.
+        if (findRange(tree)?.props.disabled && context.document.activeElement === focusInput) context.document.activeElement = context.document.body;
+        const version = stateVersion;
+        const pending = scheduledEffects.slice();
+        for (const effect of pending) effect();
+        if (version === stateVersion) return tree;
+    }
+    throw new Error("effects failed to settle");
+}
+function pointerEvent(position, id = 7, extras = {}) {
+    return { clientX: 115 + 200 * position, pointerId: id, button: 0, isPrimary: true, currentTarget: pointerTarget, preventDefault() {}, ...extras };
+}
+function railOf() { return find(tree, (n) => n.props?.className === "dsh-es-sliderRail"); }
+function triggerOf() { return find(tree, (n) => n.props?.className === "dsh-es-trigger"); }
+function preview(index) {
+    findRange(tree).props.onInput({ currentTarget: { value: String(index) } });
+    renderAdvanced();
+}
+renderAdvanced();
+triggerOf().props.onClick();
+renderAdvanced();
+snapshot.current.reasoningEffort = "none";
+renderAdvanced();
+const aliasCalls = directoryCalls.select.length;
+findRange(tree).props.onKeyUp({ key: "Home", currentTarget: { value: "0" } }); renderAdvanced();
+assert.equal(directoryCalls.select.length, aliasCalls, "off/none aliases must not duplicate a host write");
+snapshot.current.reasoningEffort = "off";
+renderAdvanced();
+let callsBefore = directoryCalls.select.length;
+const triggerBefore = JSON.stringify(find(tree, (n) => n.props?.className === "dsh-es-triggerEffort"));
+findRange(tree).props.onPointerDown(pointerEvent(.41));
+renderAdvanced();
+assert.equal(findRange(tree).props.value, 2);
+assert.equal(railOf().props["data-dragging"], "true");
+assert.equal(findSliderFill(tree).props.style.width, "calc(41% + 2.7px)");
+assert.equal(JSON.stringify(find(tree, (n) => n.props?.className === "dsh-es-triggerEffort")), triggerBefore, "draft must not change committed seat label/color");
+findRange(tree).props.onPointerMove(pointerEvent(.72, 99));
+renderAdvanced();
+assert.equal(findSliderFill(tree).props.style.width, "calc(41% + 2.7px)", "ignore other pointers");
+findRange(tree).props.onPointerMove(pointerEvent(.72));
+renderAdvanced();
+assert.equal(findRange(tree).props.value, 4);
+assert.equal(visibleStars(tree), 10);
+assert.equal(directoryCalls.select.length, callsBefore, "drag must not write host");
+assert.equal(starAnimation.currentTime, 1234, "speed changes must preserve phase");
+assert.ok(playback.some((rate) => rate > 1));
+findRange(tree).props.onPointerUp(pointerEvent(1.2));
+renderAdvanced();
+assert.equal(directoryCalls.select.length, callsBefore + 1);
+assert.equal(snapshot.current.reasoningEffort, "max");
+assert.equal(railOf().props["data-dragging"], "false");
+assert.equal(findSliderFill(tree).props.style.width, "calc(100% + -15px)");
+findRange(tree).props.onPointerUp(pointerEvent(1.2));
+assert.equal(directoryCalls.select.length, callsBefore + 1, "duplicate release must not commit");
+assert.deepEqual(captures.slice(-2), [["capture", 7], ["release", 7]]);
+assert.ok(text(find(tree, (n) => n.props?.className === "dsh-es-sliderHead")).includes("max"));
+
+// Cancel/lost capture/outside edge and nearest-notch snap.
+findRange(tree).props.onPointerDown(pointerEvent(.28)); renderAdvanced();
+findRange(tree).props.onPointerCancel(pointerEvent(.28)); renderAdvanced();
+assert.equal(findRange(tree).props.value, 6);
+assert.equal(directoryCalls.select.length, callsBefore + 1);
+findRange(tree).props.onPointerDown(pointerEvent(.41)); renderAdvanced();
+findRange(tree).props.onPointerUp(pointerEvent(.41)); renderAdvanced();
+assert.equal(snapshot.current.reasoningEffort, "low");
+assert.equal(findSliderFill(tree).props.style.width, notchFill(2));
+findRange(tree).props.onPointerDown(pointerEvent(-.2)); renderAdvanced();
+assert.equal(findSliderFill(tree).props.style.width, "0px");
+findRange(tree).props.onLostPointerCapture(pointerEvent(-.2)); renderAdvanced();
+assert.equal(findRange(tree).props.value, 2);
+
+// Failed selection rolls back and announces the reason.
+face.select = () => ({ then(resolve) { snapshot.error = "测试：宿主拒绝切换"; resolve(false); } });
+renderAdvanced(); preview(6);
+findRange(tree).props.onKeyUp({ key: "End", currentTarget: { value: "6" } }); renderAdvanced();
+assert.equal(findRange(tree).props.value, 2);
+assert.equal(text(find(tree, (n) => n.props?.role === "alert")), snapshot.error);
+snapshot.error = null;
+
+// Accepted but delayed directory confirmation pins the slider and disables it.
+face.select = () => ({ then(resolve) { resolve(true); } });
+renderAdvanced(); preview(5);
+context.document.activeElement = focusInput;
+findRange(tree).props.onKeyUp({ key: "ArrowUp", currentTarget: { value: "5" } }); renderAdvanced();
+assert.equal(findRange(tree).props.value, 5);
+assert.equal(findRange(tree).props.disabled, true);
+assert.ok(text(find(tree, (n) => n.props?.className === "dsh-es-triggerEffort")).includes("low"));
+snapshot.current.reasoningEffort = "xhigh"; renderAdvanced();
+assert.equal(findRange(tree).props.disabled, false);
+assert.equal(context.document.activeElement, focusInput, "confirmation must restore focus lost to a disabled range");
+assert.ok(text(find(tree, (n) => n.props?.className === "dsh-es-triggerEffort")).includes("xhigh"));
+
+const otherControl = {};
+preview(6);
+context.document.activeElement = focusInput;
+findRange(tree).props.onKeyUp({ key: "End", currentTarget: { value: "6" } }); renderAdvanced();
+context.document.activeElement = otherControl;
+snapshot.current.reasoningEffort = "max"; renderAdvanced();
+assert.equal(context.document.activeElement, otherControl, "confirmation must not steal focus from another control");
+
+// Old async failures cannot overwrite a replacement model's draft.
+let lateFinish;
+snapshot.current.reasoningEffort = "xhigh";
+face.select = () => ({ then(resolve) { lateFinish = resolve; } });
+renderAdvanced(); preview(6);
+findRange(tree).props.onKeyUp({ key: "End", currentTarget: { value: "6" } }); renderAdvanced();
+snapshot.current = { provider: "demo", model: "other-model", reasoningEffort: "low" }; renderAdvanced();
+preview(1);
+lateFinish(false); renderAdvanced();
+assert.equal(findRange(tree).props.value, 1);
+assert.equal(visibleStars(tree), 18, "relative highest medium gets full effect");
+assert.ok(text(find(tree, (n) => n.props?.className === "dsh-es-sliderHead")).includes("medium"));
+assert.equal(find(tree, (n) => n.props?.role === "alert"), undefined);
+face.select = originalSelect;
+
+// Four-tier model, stop/start, read-only and lock invariants.
+const reasoning = snapshot.groups[0].models[1].reasoning;
+const previousLevels = reasoning.efforts;
+reasoning.efforts = [{ id: "off" }, { id: "low" }, { id: "high" }, { id: "max" }];
+snapshot.current.reasoningEffort = "off";
+triggerOf().props.onClick(); renderAdvanced();
+triggerOf().props.onClick(); renderAdvanced();
+preview(2);
+assert.equal(visibleStars(tree), 9);
+assert.ok(Math.abs(railOf().props.style["--dsh-es-energy"] - .5) < 1e-9);
+findRange(tree).props.onPointerDown(pointerEvent(.85)); renderAdvanced();
+triggerOf().props.onClick(); renderAdvanced();
+assert.equal(findRange(tree), undefined);
+triggerOf().props.onClick(); renderAdvanced();
+assert.equal(findRange(tree).props.value, 0, "reopening discards unsubmitted drag");
+assert.equal(visibleStars(tree), 0);
+preview(3);
+find(tree, (n) => n.props?.className === "dsh-es-modelRow").props.onClick(); renderAdvanced();
+assert.equal(find(tree, (n) => n.props?.className === "dsh-es-sliderRail"), undefined);
+find(tree, (n) => n.props?.className === "dsh-es-modelPickerHeader").props.onClick(); renderAdvanced();
+assert.equal(findRange(tree).props.value, 0);
+renderAdvanced({ locked: true });
+callsBefore = directoryCalls.select.length;
+findRange(tree).props.onPointerDown(pointerEvent(1));
+findRange(tree).props.onKeyUp({ key: "End", currentTarget: { value: "3" } });
+assert.equal(directoryCalls.select.length, callsBefore);
+renderAdvanced();
+reasoning.efforts = [{ id: "medium" }]; snapshot.current.reasoningEffort = "medium"; renderAdvanced();
+assert.equal(findRange(tree).props.disabled, true);
+assert.equal(visibleStars(tree), 0);
+assert.equal(railOf().props["data-energy"], "false");
+reasoning.efforts = previousLevels;
+for (const value of effectValues.values()) value.cleanup?.();
+console.log("- continuous pointer, cancellation, snap, rollback, delayed confirmation and effect cleanup passed");
 
 console.log("all checks passed");
 console.log("- module shape: name/inject/apply ok; slot shadow priority =", registered.options.priority);
