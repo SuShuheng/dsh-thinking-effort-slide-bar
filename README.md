@@ -33,16 +33,18 @@ GIF 使用本项目的实际前端组件录制，展示连续拖动、高档星�
 ### 通过插件页面安装
 
 1. 打开官方桌面端的“插件”页面，选择添加插件。
-2. 输入本项目的包地址：
+2. 输入本项目的 **npm 包名**：
 
    ```text
-   github:SuShuheng/dsh-thinking-effort-slide-bar
+   dsh-thinking-effort-slide-bar
    ```
 
 3. 安装完成后，完全退出并重新打开桌面端。
 4. 点击输入框底部的模型入口，看到“选择强度”与滑动条后即可使用。
 
-以上地址安装远端默认分支的版本。需要固定版本时，可在 [本项目 Releases](https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases) 查看已发布标签，在地址后加上对应的 `#版本标签`；也可下载该版本的 `.tgz` 安装包，在插件页面选择本地安装。
+安装源可以选择“npm 官方源”或“中国大陆镜像源”。需要固定到本次发布版本时，填写 `dsh-thinking-effort-slide-bar@1.5.5`。这里不需要添加 GitHub 用户名前缀。
+
+本项目的 [npm 页面](https://www.npmjs.com/package/dsh-thinking-effort-slide-bar) 提供已发布版本信息。也可从 [本项目 Releases](https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases) 下载 `.tgz` 安装包，在插件页面选择本地安装；通过 GitHub 安装时使用 `github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.5`。
 
 本地开发中的版本可以直接添加本项目所在的目录。安装后同样需要完全退出并重启桌面端。
 
@@ -53,7 +55,7 @@ GIF 使用本项目的实际前端组件录制，展示连续拖动、高档星�
 先启动一次桌面端完成初始化，再**完全退出桌面端**，使用它自带的命令安装本项目：
 
 ```powershell
-dsh plugin --profile desktop add github:SuShuheng/dsh-thinking-effort-slide-bar
+dsh plugin --profile desktop add dsh-thinking-effort-slide-bar@1.5.5
 ```
 
 安装后重新打开桌面端。这里需要使用官方桌面端提供的 dsh 命令；单独通过 npm 安装的 dsh 不能管理官方 Desktop profile。
