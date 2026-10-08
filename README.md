@@ -1,5 +1,9 @@
 # DSH Thinking Effort Slide Bar
 
+[![npm 版本](https://img.shields.io/npm/v/dsh-thinking-effort-slide-bar)](https://www.npmjs.com/package/dsh-thinking-effort-slide-bar)
+
+npm 包：[dsh-thinking-effort-slide-bar](https://www.npmjs.com/package/dsh-thinking-effort-slide-bar)
+
 为 **DeepSeek Harness 官方桌面版**提供思考强度滑动条：拖动选择档位，松手确认；随着强度提高，绿色轨道逐渐加入金色与粉色光效，星尘沿轨道流动。
 
 ## 可视化效果
