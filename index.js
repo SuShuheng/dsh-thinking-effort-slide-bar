@@ -686,6 +686,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
         const ICON_WARNING_DOT = "M6.3002 9.01935H7.69986V10.6711H6.3002V9.01935Z";
         const ICON_WARNING_RING = "M12.6328 6.99976C12.6328 3.88874 10.111 1.36694 7 1.36694C3.88899 1.36695 1.3672 3.88875 1.36719 6.99976C1.36719 10.1108 3.88899 12.6326 7 12.6326C10.111 12.6326 12.6328 10.1108 12.6328 6.99976ZM13.8582 6.99976C13.8582 10.7873 10.7876 13.8579 7 13.8579C3.21244 13.8579 0.141846 10.7873 0.141846 6.99976C0.141857 3.2122 3.21245 0.141612 7 0.141602C10.7876 0.141602 13.8581 3.21219 13.8582 6.99976Z";
         const IMAGE_BLOCK_REASON = "当前草稿包含图片，此模型不支持图片输入";
+        const DRAFT_ATTACHMENT_NOTICE = "当前草稿包含附件；如果包含图片，请选择支持图片输入的模型";
         const DEEPSEEK_FLASH_VISION_EXP_MODEL = "deepseek-v4-flash-vision-exp";
         // Single-notch fallback for models without reasoning metadata: the
         // slider still renders one fixed "off" notch (the "default" IS off;
@@ -756,7 +757,10 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
             const [dragPosition, setDragPosition] = react.useState(null);
             const [selectionError, setSelectionError] = react.useState(null);
             const inputSnapshot = (useInput ?? defaultUseInput)((s) => s);
-            const draftHasImages = inputSnapshot !== null && inputSnapshot !== undefined && (inputSnapshot.imageIds?.length ?? 0) > 0;
+            const draftHasImages = (inputSnapshot?.imageIds?.length ?? 0) > 0;
+            // Current Desktop exposes attachment ids, not image ids or kinds.
+            // Keep the new notice conditional: ordinary files are not images.
+            const draftHasAttachments = (inputSnapshot?.attachmentIds?.length ?? 0) > 0;
 
             const showModelAnnotation = (event, annotation, key) => {
                 if (annotation === undefined || annotation === null || annotation === "") return;
@@ -1073,7 +1077,9 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                             const failedReason = blockedModels[modelKey(group.id, model.id)];
                             const imageBlocked = draftHasImages && knownTextOnlyModel(group.id, model);
                             const blocked = failedReason !== undefined;
-                            const noticeReason = failedReason ?? (imageBlocked ? IMAGE_BLOCK_REASON : undefined);
+                            const attachmentNotice = draftHasAttachments && knownTextOnlyModel(group.id, model)
+                                ? DRAFT_ATTACHMENT_NOTICE : undefined;
+                            const noticeReason = failedReason ?? (imageBlocked ? IMAGE_BLOCK_REASON : attachmentNotice);
                             const description = typeof model.description === "string" && model.description.trim().length > 0
                                 ? model.description
                                 : undefined;
@@ -1094,8 +1100,8 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                                     noticeReason !== undefined
                                         ? react.createElement(
                                             "span",
-                                            { className: "dsh-es-menuItemNotice" },
-                                            warningIcon()
+                                            { className: blocked || imageBlocked ? "dsh-es-menuItemNotice" : "dsh-es-menuItemInfo" },
+                                            blocked || imageBlocked ? warningIcon() : infoIcon()
                                         )
                                         : description !== undefined
                                             ? react.createElement(
@@ -1299,18 +1305,18 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                     {
                         type: "button",
                         className: "dsh-es-trigger",
-                        "aria-label": fullLabel,
+                        "aria-label": open ? "选择强度" : fullLabel,
                         "aria-haspopup": "menu",
                         "aria-expanded": open,
-                        title: fullLabel,
+                        title: open ? "选择强度" : fullLabel,
                         disabled: locked,
                         onClick: () => {
                             setOpen((value) => !value);
                             setModelsOpen(false);
                         }
                     },
-                    react.createElement("span", { className: "dsh-es-triggerLabel" }, modelLabel),
-                    effortLabel !== undefined
+                    react.createElement("span", { className: "dsh-es-triggerLabel" }, open ? "选择强度" : modelLabel),
+                    !open && effortLabel !== undefined
                         ? react.createElement("span", { className: "dsh-es-triggerEffort", style: effortColors(positionFor(currentIndex, levels.length), currentLevel) }, effortLabel)
                         : null,
                     chevronIcon(ICON_CHEVRON_DOWN, open ? "dsh-es-chevron dsh-es-chevronOpen" : "dsh-es-chevron")
@@ -1371,7 +1377,12 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                                         return Promise.resolve();
                                     },
                                     select: (selection) => available
-                                        ? directory.select(selection).then(() => true, () => false)
+                                        ? directory.select(selection).then(
+                                            // Older directories resolve void on success; current
+                                            // Desktop returns RemoteResult even when it rejects a selection.
+                                            (result) => result === undefined || result?.ok === true,
+                                            () => false
+                                        )
                                         : Promise.resolve(false)
                                 };
                             } catch (error) {

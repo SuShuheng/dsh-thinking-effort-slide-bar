@@ -143,6 +143,10 @@ const store = {
     }
 };
 
+// Synchronous thenable with actual value propagation, including RemoteResult.
+function settled(value) {
+    return { then(resolve) { return settled(resolve(value)); } };
+}
 const directory = {
     store,
     load() {
@@ -152,12 +156,7 @@ const directory = {
     select(selection) {
         directoryCalls.select.push(selection);
         snapshot.current = { ...snapshot.current, ...selection };
-        return {
-            then(resolve) {
-                resolve(true);
-                return this;
-            }
-        };
+        return settled(undefined);
     }
 };
 
@@ -524,6 +523,9 @@ tree = registered.component({
     load: face.load,
     select: face.select
 });
+const openTrigger = find(tree, (n) => n.props?.className === "dsh-es-trigger");
+if (text(openTrigger) !== "选择强度" || openTrigger.props["aria-label"] !== "选择强度" || openTrigger.props.title !== "选择强度") throw new Error("expanded trigger must show only 选择强度");
+if (find(openTrigger, (n) => n.props?.className === "dsh-es-triggerEffort")) throw new Error("expanded trigger must hide effort caption");
 const effortMenu = find(tree, (n) => n.props?.className === "dsh-es-menu");
 sliderWrap2 = find(effortMenu, (n) => n.props?.className === "dsh-es-sliderWrap");
 if (!sliderWrap2) throw new Error("back control must restore the effort slider view");
@@ -965,8 +967,8 @@ if (!defaultHead || !text(defaultHead).includes("off")) {
     throw new Error(`default notch head must display "off", got ${JSON.stringify(text(defaultHead))}`);
 }
 const defaultTriggerLabel = text(tree.children[0]);
-if (!defaultTriggerLabel.includes("DeepSeek-V4-Flash") || !defaultTriggerLabel.includes("off")) {
-    throw new Error(`trigger must show model + off, got ${defaultTriggerLabel}`);
+if (defaultTriggerLabel !== "选择强度") {
+    throw new Error(`expanded read-only trigger must show 选择强度, got ${defaultTriggerLabel}`);
 }
 const selectsBeforeDefault = directoryCalls.select.length;
 defaultSlider.props.onKeyUp({ key: "Home", currentTarget: { value: "0" } });
@@ -1158,11 +1160,15 @@ context.document.activeElement = focusInput;
 findRange(tree).props.onKeyUp({ key: "ArrowUp", currentTarget: { value: "5" } }); renderAdvanced();
 assert.equal(findRange(tree).props.value, 5);
 assert.equal(findRange(tree).props.disabled, true);
-assert.ok(text(find(tree, (n) => n.props?.className === "dsh-es-triggerEffort")).includes("low"));
+assert.equal(text(triggerOf()), "选择强度");
+triggerOf().props.onClick(); renderAdvanced();
+assert.ok(text(triggerOf()).includes("low"), "closed caption must show the confirmed low tier while pending");
+triggerOf().props.onClick(); renderAdvanced();
 snapshot.current.reasoningEffort = "xhigh"; renderAdvanced();
 assert.equal(findRange(tree).props.disabled, false);
 assert.equal(context.document.activeElement, focusInput, "confirmation must restore focus lost to a disabled range");
-assert.ok(text(find(tree, (n) => n.props?.className === "dsh-es-triggerEffort")).includes("xhigh"));
+assert.equal(text(triggerOf()), "选择强度");
+assert.equal(snapshot.current.reasoningEffort, "xhigh");
 
 const otherControl = {};
 preview(6);
@@ -1219,6 +1225,50 @@ assert.equal(findRange(tree).props.disabled, true);
 assert.equal(visibleStars(tree), 0);
 assert.equal(railOf().props["data-energy"], "false");
 reasoning.efforts = previousLevels;
+
+// v1.5.5: new Desktop RemoteResult outcomes must cross the actual adapter correctly.
+const savedDirectorySelect = directory.select;
+const savedCurrent = snapshot.current;
+directory.select = () => settled({ ok: false, error: { code: "session/writer-held", message: "busy" } });
+let adapterResult;
+face.select({ provider: "demo", model: "model", reasoningEffort: "max" }).then(result => { adapterResult = result; });
+assert.equal(adapterResult, false, "a normally resolved RemoteResult failure must not become success");
+directory.select = () => settled({ ok: true, value: undefined });
+face.select({}).then(result => { adapterResult = result; });
+assert.equal(adapterResult, true);
+directory.select = () => settled(undefined);
+face.select({}).then(result => { adapterResult = result; });
+assert.equal(adapterResult, true, "legacy void success stays supported");
+
+// A real adapter rejection rolls back and leaves the control usable.
+reasoning.efforts = previousLevels;
+snapshot.current = { provider: "demo", model: "other-model", reasoningEffort: "low" };
+renderAdvanced();
+directory.select = () => { snapshot.error = "session/writer-held: busy"; return settled({ ok: false, error: { code: "session/writer-held", message: "busy" } }); };
+preview(1);
+findRange(tree).props.onKeyUp({key:"End",currentTarget:{value:"1"}}); renderAdvanced();
+assert.equal(findRange(tree).props.value, 0);
+assert.equal(findRange(tree).props.disabled, false);
+assert.equal(text(find(tree,n=>n.props?.role==='alert')), "session/writer-held: busy");
+directory.select = savedDirectorySelect;
+snapshot.error = null;
+snapshot.current = savedCurrent;
+
+// Current attachment ids are ambiguous; never claim ordinary files are images.
+renderAdvanced();
+find(tree,n=>n.props?.className==='dsh-es-modelRow').props.onClick(); renderAdvanced();
+const inputWithAttachment = select => select({draft:"",attachmentIds:["file-only"],draftRev:0,phase:"plain",occurrences:[],queue:[]});
+renderAdvanced({useInput:inputWithAttachment});
+const attachmentOption = find(tree,n=>n.props?.type==='button' && text(n).includes('DeepSeek-V4-Pro'));
+assert.equal(attachmentOption.props['aria-disabled'], false);
+assert.ok(attachmentOption.props['aria-label'].includes('如果包含图片'));
+assert.ok(!attachmentOption.props['aria-label'].includes('当前草稿包含图片'));
+assert.equal(find(attachmentOption,n=>n.props?.className==='dsh-es-menuItemNotice'), undefined, "ambiguous file attachments must not show an image rejection warning");
+assert.equal(text(triggerOf()), '选择强度', 'model picker also keeps the open caption');
+triggerOf().props.onClick(); renderAdvanced();
+assert.ok(text(triggerOf()).includes('Other Model'), 'closing restores the actual model label');
+assert.ok(!text(triggerOf()).includes('选择强度'));
+
 for (const value of effectValues.values()) value.cleanup?.();
 console.log("- continuous pointer, cancellation, snap, rollback, delayed confirmation and effect cleanup passed");
 
