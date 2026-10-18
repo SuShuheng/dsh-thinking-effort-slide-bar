@@ -1286,10 +1286,13 @@ console.log("- model list replaces the slider in the same popover; slider submit
 // adapters, including independent injection lifetimes and rejected writes.
 async function verifySettingsAndVersions() {
     const { Config } = await import("./host.js");
-    const defaults = { showModelVersion: true, motion: "system", effortLanguage: "en", showModelDescriptions: true, compact: false };
+    const defaults = { showModelVersion: true, effortLanguage: "en", showModelDescriptions: true, compact: false, maxEffect: "classic", colors: ["#bfd993", "#b99a59", "#cf92b6"], providerOrder: [], modelOrder: {}, defaultProvider: "", defaultModel: "", defaultEffort: "" };
     const parsed = Config({});
-    for (const [key, value] of Object.entries(defaults)) assert.equal(parsed[key].get(), value);
-    assert.throws(() => Config({ motion: "invalid" }));
+    for (const [key, value] of Object.entries(defaults)) assert.deepEqual(parsed[key].get(), value);
+    assert.equal(Config({ motion: "off" }).motion, "off", "legacy motion can load but is not a declared setting");
+    assert.throws(() => Config({ maxEffect: "off" }));
+    assert.throws(() => Config({ colors: ["bad"] }));
+    assert.throws(() => Config({ colors: ["#ffffff", "#ffffff"] }));
     assert.throws(() => Config({ effortLanguage: "invalid" }));
     assert.throws(() => Config({ compact: "yes" }));
 
@@ -1355,11 +1358,11 @@ async function verifySettingsAndVersions() {
     assert.equal(badge(), undefined);
     assert.equal(find(officialOption(), n => n.props?.className === "dsh-es-menuItemInfo"), undefined);
     assert.equal(tree.props["data-compact"], "true");
-    assert.equal(tree.props["data-motion"], "off");
+    assert.equal(tree.props["data-motion"], "system");
     triggerOf().props.onClick(); renderAdvanced();
     assert.ok(text(triggerOf()).includes("高"));
     updateSettings({ showModelVersion: true, motion: "reduced" }); renderAdvanced();
-    assert.equal(tree.props["data-motion"], "reduced");
+    assert.equal(tree.props["data-motion"], "system");
     releaseEntry = { locale: "deepseek-model-label-1018" }; releaseText = "1018";
     for (const listener of labelListeners) listener(); renderAdvanced();
     assert.equal(text(badge()), "1018", "release comes from current contribution, never a fixed date");
@@ -1382,6 +1385,29 @@ async function verifySettingsAndVersions() {
     officialModel.name = "deepseek-v4.1-flash-1017"; renderAdvanced();
     assert.equal(text(find(tree, n => n.props?.className === "dsh-es-modelName")), "deepseek-v4.1-flash");
 
+    updateSettings({ maxEffect: "ultracode", colors: ["#102030", "#405060", "#aabbcc"],
+        providerOrder: [officialGroup.id], modelOrder: { [officialGroup.id]: [officialModel.id] } });
+    snapshot.current.reasoningEffort = "max";
+    triggerOf().props.onClick(); renderAdvanced();
+    assert.equal(find(tree, n => n.props?.className === "dsh-es-sliderRail").props["data-ultracode"], "true");
+    assert.ok(findSliderFill(tree).props.style.background.includes("#102030"), "custom low color reaches track");
+    assert.ok(find(tree, n => n.props?.className === "dsh-es-sliderWrap").props.style["--dsh-es-gradient"].includes("#405060"));
+    assert.ok(find(tree, n => typeof n.type === "function" && n.type.name === "UltracodeEffect"), "highest real model level mounts point effect");
+    snapshot.current.reasoningEffort = "low"; renderAdvanced();
+    assert.equal(find(tree, n => n.props?.className === "dsh-es-sliderRail").props["data-ultracode"], "false");
+    assert.equal(find(tree, n => typeof n.type === "function" && n.type.name === "UltracodeEffect"), undefined, "lower levels keep classic effects");
+    find(tree, n => n.props?.className === "dsh-es-modelRow").props.onClick(); renderAdvanced();
+    assert.equal(text(find(tree, n => n.props?.className === "dsh-es-menuGroup")), officialGroup.name, "provider order reaches menu");
+    assert.equal(find(tree, n => n.props?.role === "menuitem" && n.props.title).props.title, officialModel.id, "model order reaches menu");
+    const appended = { id: "new-model", name: "New model" };
+    officialGroup.models.push(appended); renderAdvanced();
+    const titles = [];
+    find(tree, n => { if (n.props?.role === "menuitem" && n.props.title) titles.push(n.props.title); return false; });
+    const oldGroupLength = officialGroup.models.length;
+    assert.equal(titles[oldGroupLength - 1], appended.id, "new model appends after ordered existing items");
+    officialGroup.models.pop();
+    updateSettings(defaults);
+
     // Render the real settings component with effect-aware hook bookkeeping.
     resetHooks();
     function renderSettings() {
@@ -1395,28 +1421,109 @@ async function verifySettingsAndVersions() {
         throw new Error("settings effects did not settle");
     }
     let page = renderSettings();
-    const settingControl = (label) => find(find(page, n => n.type === "label" && text(n).includes(label)), n => n.type === "input" || n.type === "select");
-    settingControl("强度名称语言").props.onChange({ target: { value: "en" } }); page = renderSettings();
+    const control = label => find(page, n => n.props?.["aria-label"] === label);
+    const flushSaves = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); page = renderSettings(); };
+    assert.equal(control("动效模式"), undefined);
     outcome = false;
-    await page.props.onSubmit({ preventDefault() {} }); page = renderSettings();
-    assert.ok(text(page).includes("保存未成功"));
-    assert.equal(settingControl("强度名称语言").props.value, "en", "rejected writes retain editable draft");
+    control("强度名称语言").props.onChange({ target: { value: "zh" } });
+    await flushSaves();
+    assert.ok(text(page).includes("保存失败"));
+    assert.equal(control("强度名称语言").props.value, "en", "rejected automatic save rolls back");
     outcome = "throw";
-    await page.props.onSubmit({ preventDefault() {} }); page = renderSettings();
-    assert.ok(text(page).includes("检查连接"));
+    control("强度名称语言").props.onChange({ target: { value: "zh" } });
+    await flushSaves(); assert.ok(text(page).includes("检查连接"));
     outcome = true;
-    await page.props.onSubmit({ preventDefault() {} }); page = renderSettings();
-    assert.ok(text(page).includes("已保存"));
+    control("强度名称语言").props.onChange({ target: { value: "en" } });
+    control("显示模型版本徽标").props.onClick();
+    await flushSaves();
+    assert.ok(text(page).includes("已自动保存"));
     assert.equal(formSnapshot.value.effortLanguage, "en");
-    assert.equal(mutations.at(-1).revision, 2, "retry uses recovered revision");
-    assert.equal(mutations.at(-1).ops.length, 5);
+    assert.equal(formSnapshot.value.showModelVersion, false, "queued changes to other fields survive");
+    assert.equal(mutations.at(-1).revision, formSnapshot.revision - 1, "queue uses current revision");
+    assert.ok(mutations.some(m => m.ops.some(op => op.op === "unset" && op.path[0] === "motion")));
     updateSettings({}, { writable: false }); page = renderSettings();
-    assert.equal(settingControl("紧凑布局").props.disabled, true);
+    assert.equal(control("紧凑布局").props.disabled, true);
     updateSettings({}, { writable: true }); page = renderSettings();
-    find(page, n => n.type === "button" && text(n) === "恢复默认值").props.onClick(); page = renderSettings();
-    assert.equal(formSnapshot.value.compact, true, "reset is a draft until explicitly saved");
-    await page.props.onSubmit({ preventDefault() {} }); page = renderSettings();
-    assert.deepEqual(formSnapshot.value, defaults);
+    find(page, n => n.type === "button" && text(n) === "恢复默认值").props.onClick();
+    await flushSaves();
+    for (const [key, value] of Object.entries(defaults)) assert.deepEqual(JSON.parse(JSON.stringify(formSnapshot.value[key])), value);
+
+    // Actual registered injection + session projection APIs. Old blank sessions,
+    // user selections and unresolved history must not be mistaken for new intent.
+    updateSettings({ defaultProvider: "demo", defaultModel: "target", defaultEffort: "max" });
+    let listValue = { phase: "ready", ids: ["old-blank", "history"] };
+    const listObservers = new Set(), records = new Map(), selections = [];
+    let registration, stopDefaults;
+    const defaultsGroups = [{ id: "demo", name: "Demo", models: [
+        { id: "target", name: "Target", reasoning: { defaultEffort: "low", efforts: [{ id: "low", name: "Low" }, { id: "max", name: "Max" }] } }
+    ] }];
+    function record(id, overrides = {}) {
+        const observers = new Set();
+        const item = { blank: true, projection: { lastUsed: null, next: null }, status: "ready", pending: null, ...overrides };
+        item.notify = () => { for (const listener of observers) listener(); };
+        const observe = listener => { observers.add(listener); return () => observers.delete(listener); };
+        item.observers = observers;
+        item.directory = {
+            store: { subscribe: observe, getSnapshot: () => ({ status: item.status, pending: item.pending,
+                groups: defaultsGroups, current: { provider: "demo", model: "original" } }) },
+            load: () => Promise.resolve(),
+            select: async selection => { selections.push({ id, ...selection }); item.projection = { lastUsed: null, next: selection }; item.notify(); return { ok: true }; }
+        };
+        item.session = { getSnapshot: () => ({ blank: item.blank }), subscribe: observe,
+            projections: { faceOf: () => ({ subscribe: observe, getSnapshot: () => item.projection }) } };
+        records.set(id, item); return item;
+    }
+    record("old-blank"); record("history", { blank: false });
+    const fakeSessions = {
+        list: { getSnapshot: () => listValue, subscribe: listener => { listObservers.add(listener); return () => listObservers.delete(listener); } },
+        binding: id => ({ session: records.get(id).session }), subagentAddress: id => id === "subagent" ? {} : undefined
+    };
+    captured.apply({ inject(services, callback) {
+        if (!services.includes("modelDirectories")) return;
+        stopDefaults = callback({ sessions: fakeSessions, modelDirectories: { directoryFor: id => records.get(id).directory },
+            slots: { inject: (_slot, factory) => factory(), register: options => { registration = options; return () => {}; } }
+        });
+    } });
+    const mount = id => registration.inject(id);
+    const add = (id, overrides) => {
+        const item = record(id, overrides);
+        listValue = { ...listValue, ids: [...listValue.ids, id] };
+        for (const listener of listObservers) listener();
+        mount(id); return item;
+    };
+    mount("old-blank"); mount("history");
+    assert.equal(selections.length, 0, "existing blank and history are protected");
+    const fresh = add("fresh");
+    await Promise.resolve();
+    assert.deepEqual(JSON.parse(JSON.stringify(selections)), [{ id: "fresh", provider: "demo", model: "target", reasoningEffort: "max" }]);
+    mount("fresh"); fresh.notify();
+    updateSettings({ compact: true });
+    assert.equal(selections.length, 1, "remount, store updates and settings changes do not reapply");
+    add("manual", { projection: { lastUsed: null, next: { provider: "demo", model: "manual" } } });
+    add("used", { projection: { lastUsed: { provider: "demo", model: "used" }, next: null } });
+    add("subagent");
+    assert.equal(selections.length, 1, "manual, previously used and subagent sessions are protected");
+    const delayed = add("delayed", { projection: undefined });
+    assert.equal(selections.length, 1, "unloaded projection is not an empty projection");
+    delayed.projection = { lastUsed: null, next: null }; delayed.notify();
+    assert.equal(selections.length, 2);
+    const raced = add("raced", { status: "loading" });
+    raced.projection = { lastUsed: null, next: { provider: "demo", model: "manual" } }; raced.notify();
+    raced.status = "ready"; raced.notify();
+    assert.equal(selections.length, 2, "manual choice made while loading wins");
+    updateSettings({ defaultEffort: "unsupported" }); add("fallback-effort");
+    assert.equal(selections.at(-1).reasoningEffort, "low", "removed effort falls back to advertised default");
+    updateSettings({ defaultModel: "removed" }); add("missing-model");
+    assert.equal(selections.length, 3, "removed model keeps DSH default without submitting an invalid selection");
+    updateSettings({ defaultModel: "" }); add("follow-dsh");
+    assert.equal(selections.length, 3);
+    const pending = add("teardown", { projection: undefined });
+    stopDefaults();
+    pending.projection = { lastUsed: null, next: null }; pending.notify();
+    assert.equal(selections.length, 3);
+    assert.equal(listObservers.size, 0);
+    assert.ok([...records.values()].every(item => item.observers.size === 0), "session subscriptions are released");
+    console.log("- new-session defaults: history/manual protection, projection readiness, once-only, loading race, unavailable model/effort and disposal passed");
     resetHooks();
     stopRelease(); stopSettings();
     assert.equal(labelListeners.size + localeListeners.size + formListeners.size, 0);
@@ -1424,7 +1531,7 @@ async function verifySettingsAndVersions() {
     assert.equal(tree.props["data-compact"], "false", "optional service removal restores default slider");
     assert.equal(text(badge()), "1017", "explicit ID versions remain available without optional services");
     resetHooks();
-    console.log("- v1.5.6 Host schema, persisted-form adapter, retries, readonly mode, live settings, label metadata and suffix versions passed");
+    console.log("- v1.5.7 schema, legacy motion isolation, autosave queue, rollback, readonly, reset and model release badges passed");
     console.log("all checks passed");
 }
 verifySettingsAndVersions().catch(error => { console.error(error); process.exitCode = 1; });

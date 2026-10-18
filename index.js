@@ -14,8 +14,10 @@ window.__ModuleLoader__.load({
         const slotName = "conversation.input.model";
         const settingsNamespace = "thinking-effort-slide-bar";
         const DEFAULT_SETTINGS = Object.freeze({
-            showModelVersion: true, motion: "system", effortLanguage: "en",
-            showModelDescriptions: true, compact: false
+            showModelVersion: true, effortLanguage: "en", showModelDescriptions: true, compact: false,
+            maxEffect: "classic", colors: Object.freeze(["#bfd993", "#b99a59", "#cf92b6"]),
+            providerOrder: Object.freeze([]), modelOrder: Object.freeze({}),
+            defaultProvider: "", defaultModel: "", defaultEffort: ""
         });
         const fallbackSettings = Object.freeze({ status: "unavailable", value: DEFAULT_SETTINGS, writable: false });
         let settingsForm;
@@ -33,11 +35,47 @@ window.__ModuleLoader__.load({
         };
         const normalizeSettings = (value) => ({
             showModelVersion: typeof value?.showModelVersion === "boolean" ? value.showModelVersion : true,
-            motion: ["system", "reduced", "off"].includes(value?.motion) ? value.motion : "system",
             effortLanguage: value?.effortLanguage === "zh" ? "zh" : "en",
             showModelDescriptions: typeof value?.showModelDescriptions === "boolean" ? value.showModelDescriptions : true,
-            compact: value?.compact === true
+            compact: value?.compact === true,
+            maxEffect: value?.maxEffect === "ultracode" ? "ultracode" : "classic",
+            colors: Array.isArray(value?.colors) && value.colors.length === 3 && value.colors.every(c => /^#[0-9a-f]{6}$/i.test(c))
+                ? value.colors : DEFAULT_SETTINGS.colors,
+            providerOrder: stringOrder(value?.providerOrder),
+            modelOrder: value?.modelOrder && typeof value.modelOrder === "object" && !Array.isArray(value.modelOrder)
+                ? Object.fromEntries(Object.entries(value.modelOrder).map(([key, ids]) => [key, stringOrder(ids)])) : {},
+            defaultProvider: typeof value?.defaultProvider === "string" ? value.defaultProvider : "",
+            defaultModel: typeof value?.defaultModel === "string" ? value.defaultModel : "",
+            defaultEffort: typeof value?.defaultEffort === "string" ? value.defaultEffort : ""
         });
+        function stringOrder(value) {
+            return Array.isArray(value) ? [...new Set(value.filter(id => typeof id === "string"))] : [];
+        }
+        function ordered(items, ids) {
+            const rank = new Map(ids.map((id, index) => [id, index]));
+            return items.slice().sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
+        }
+        function sortedGroups(groups, settings) {
+            return ordered(groups, settings.providerOrder).map(group => ({ ...group,
+                models: ordered(group.models, Object.hasOwn(settings.modelOrder, group.id) ? settings.modelOrder[group.id] : []) }));
+        }
+        let catalogSnapshot = { status: "loading", groups: [], error: "" };
+        const catalogListeners = new Set();
+        const catalogStore = {
+            subscribe(fn) { catalogListeners.add(fn); return () => catalogListeners.delete(fn); },
+            getSnapshot() { return catalogSnapshot; }
+        };
+        let reloadCatalog = () => Promise.resolve();
+        function publishCatalog(next) {
+            catalogSnapshot = next;
+            for (const listener of catalogListeners) listener();
+        }
+        const COLOR_PRESETS = [
+            ["经典", ["#bfd993", "#b99a59", "#cf92b6"]],
+            ["紫曜", ["#93c5fd", "#a78bfa", "#c084fc"]],
+            ["冰川", ["#a7f3d0", "#67e8f9", "#60a5fa"]],
+            ["焰金", ["#fde68a", "#fbbf24", "#fb7185"]]
+        ];
 
         // Read an explicit release suffix before consulting the official badge.
         // The latter is registered UI metadata, not part of ModelCatalogModel.
@@ -83,23 +121,65 @@ window.__ModuleLoader__.load({
 .dsh-es-root[data-compact="true"] .dsh-es-menuItem,
 .dsh-es-root[data-compact="true"] .dsh-es-modelRow { padding: 5px 6px; }
 .dsh-es-root[data-compact="true"] .dsh-es-sliderWrap { padding: 6px; }
-.dsh-es-root[data-motion="reduced"] .dsh-es-sliderSweep,
-.dsh-es-root[data-motion="reduced"] .dsh-es-sliderSparkle,
 .dsh-es-root[data-motion="off"] .dsh-es-sliderSweep,
 .dsh-es-root[data-motion="off"] .dsh-es-sliderSparkle { display: none; animation: none; }
 .dsh-es-root[data-motion="off"] *, .dsh-es-root[data-motion="off"] *::before,
 .dsh-es-root[data-motion="off"] *::after { animation: none !important; transition: none !important; }
-.dsh-es-settings { display: grid; gap: 16px; max-width: 560px; color: var(--dsw-alias-label-primary); }
-.dsh-es-setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 14px; }
-.dsh-es-setting select, .dsh-es-settings button {
-    font: inherit; color: inherit; background: var(--dsw-alias-interactive-bg-hover, transparent);
-    border: 1px solid var(--dsw-alias-border-l3, #8886); border-radius: 8px; padding: 6px 10px;
+.dsh-es-settings { width: 100%; min-width: 0; color: var(--dsw-alias-label-primary, #eee); font-size: 14px; }
+.dsh-es-settings, .dsh-es-settings * { box-sizing: border-box; }
+.dsh-es-settings section { padding: 22px 0; border-bottom: 1px solid var(--dsw-alias-border-l3, #8883); }
+.dsh-es-settings h3 { font-size: 14px; font-weight: 600; margin: 0 0 8px; }
+.dsh-es-setting { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 12px 0; }
+.dsh-es-settingText { min-width: 0; display: grid; gap: 5px; }
+.dsh-es-settings p { margin: 0; color: var(--dsw-alias-label-secondary, #999); font-size: 12px; line-height: 1.6; }
+.dsh-es-settings select, .dsh-es-settings button { font: inherit; color: inherit; }
+.dsh-es-settings select, .dsh-es-settings .dsh-es-button {
+    max-width: 100%; min-height: 34px; border: 0; border-radius: 12px; padding: 7px 12px;
+    background: var(--dsw-alias-interactive-bg-hover, #8882);
 }
-.dsh-es-settings p { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 12px; }
-.dsh-es-settingsActions { display: flex; gap: 8px; }
+.dsh-es-settings select { min-width: 0; flex-shrink: 1; max-width: min(48%, 320px); cursor: pointer; text-overflow: ellipsis; }
+.dsh-es-settings option { color: var(--dsw-alias-label-primary, #eee); background: var(--dsw-specific-menu, #292929); }
 .dsh-es-settings button:not(:disabled) { cursor: pointer; }
-.dsh-es-settings button:disabled { opacity: .5; cursor: default; }
-.dsh-es-settings :focus-visible { outline: 2px solid #739de8; outline-offset: 2px; }
+.dsh-es-settings button:disabled, .dsh-es-settings select:disabled { opacity: .5; cursor: default; }
+.dsh-es-settings :focus-visible { outline: 2px solid var(--dsw-focus-ring-color, #739de8); outline-offset: 3px; }
+.dsh-es-settings .dsh-es-switch { flex: none; width: 36px; height: 20px; padding: 2px; border: 0; border-radius: 999px; background: var(--dsw-alias-border-l3, #666); }
+.dsh-es-switch span { display: block; width: 16px; height: 16px; border-radius: 50%; background: var(--dsw-alias-switch-thumb, #fff); transition: transform 120ms ease; }
+.dsh-es-switch[aria-checked="true"] { background: var(--dsw-alias-brand-primary, #7295f2); }
+.dsh-es-switch[aria-checked="true"] span { transform: translateX(16px); background: var(--dsw-alias-label-primary-foreground, #fff); }
+.dsh-es-settingsActions { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 20px; flex-wrap: wrap; }
+.dsh-es-saveState { opacity: 1 !important; display: inline-flex; align-items: center; gap: 7px; }
+.dsh-es-saveState::before { content: ''; width: 6px; height: 6px; background: #8bb27b; border-radius: 50%; }
+.dsh-es-saveState[data-state="saving"]::before { background: #cbb675; }
+.dsh-es-saveState[data-state="error"]::before { background: #ef8c8c; }
+.dsh-es-settings .dsh-es-error { color: var(--dsw-alias-state-error-primary, #ed8c8c); padding-top: 10px; }
+.dsh-es-palettes, .dsh-es-colors { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.dsh-es-palette { display: flex; align-items: center; gap: 8px; }
+.dsh-es-palette i { width: 36px; height: 12px; border-radius: 6px; }
+.dsh-es-palette[aria-pressed="true"] { outline: 1px solid var(--dsw-alias-brand-primary, #7295f2); }
+.dsh-es-color { display: flex; flex: 1; min-width: 130px; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--dsw-alias-border-l3, #8883); border-radius: 12px; }
+.dsh-es-color input { border: 0; padding: 0; width: 30px; height: 26px; background: transparent; cursor: pointer; }
+.dsh-es-color span { display: grid; gap: 3px; font-size: 12px; }
+.dsh-es-color small { color: var(--dsw-alias-label-secondary, #999); font-size: 11px; }
+.dsh-es-preview { border: 1px solid var(--dsw-alias-border-l3, #8883); border-radius: 16px; padding: 18px; margin-top: 16px; }
+.dsh-es-previewTrack { position: relative; height: 28px; border-radius: 999px; margin-top: 12px; overflow: hidden; }
+.dsh-es-previewTrack::after { content: ''; position: absolute; right: 2px; top: 2px; height: 24px; width: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 8px #0004; }
+.dsh-es-previewTrack .dsh-es-sliderSparkle { position: absolute; }
+.dsh-es-ultracode { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; mix-blend-mode: screen; border-radius: inherit; }
+.dsh-es-sliderRail[data-ultracode="true"] .dsh-es-sliderBloom,
+.dsh-es-sliderRail[data-ultracode="true"] .dsh-es-sliderSparkles { visibility: hidden; }
+.dsh-es-sortGroup { margin-top: 10px; border: 1px solid var(--dsw-alias-border-l3, #8883); border-radius: 12px; overflow: hidden; }
+.dsh-es-sortRow { display: flex; align-items: center; gap: 8px; padding: 8px 10px; min-width: 0; }
+.dsh-es-sortHeading { background: var(--dsw-alias-interactive-bg-hover, #8881); font-weight: 500; }
+.dsh-es-sortName { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dsh-es-sortHandle { color: var(--dsw-alias-label-secondary, #888); cursor: grab; user-select: none; }
+.dsh-es-sortRow .dsh-es-button { min-height: 28px; padding: 4px 8px; border-radius: 8px; }
+.dsh-es-sortRow[draggable="true"]:hover { background: var(--dsw-alias-interactive-bg-hover, #8881); }
+@media (max-width: 520px) {
+    .dsh-es-setting { gap: 12px; }
+    .dsh-es-settings select { max-width: 48%; }
+    .dsh-es-color { min-width: 110px; }
+    .dsh-es-settingsActions { align-items: flex-start; }
+}
 .dsh-es-trigger {
     min-width: 0;
     max-width: 230px;
@@ -468,7 +548,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
     transition: opacity .2s ease;
 }
 .dsh-es-sliderBloom {
-    background: linear-gradient(90deg, #acc77f, #b99a59 42%, #cf92b6);
+    background: var(--dsh-es-gradient, linear-gradient(90deg, #acc77f, #b99a59 42%, #cf92b6));
     opacity: var(--dsh-es-energy, 0);
 }
 .dsh-es-sliderSweep {
@@ -689,14 +769,16 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
         const paletteColor = (position, colors) => position <= 1 / 3 ? mixColor(colors[0], colors[0], 0)
             : position <= 2 / 3 ? mixColor(colors[0], colors[1], (position - 1 / 3) * 3)
             : mixColor(colors[1], colors[2], (position - 2 / 3) * 3);
-        const fillColors = [[191, 217, 147], [185, 154, 89], [207, 146, 182]];
         const lightTextColors = [[65, 86, 33], [108, 78, 20], [137, 53, 95]];
         const darkTextColors = [[191, 217, 147], [224, 194, 130], [234, 178, 208]];
-        const effortColors = (position, level) => {
+        const hexRgb = hex => [1, 3, 5].map(offset => parseInt(hex.slice(offset, offset + 2), 16));
+        const effortColors = (position, level, colors = DEFAULT_SETTINGS.colors) => {
             if (!level || ["off", "none"].includes(effortValue(level.id))) return {};
+            const custom = !colors.every((c, i) => c.toLowerCase() === DEFAULT_SETTINGS.colors[i]);
+            const rgb = colors.map(hexRgb);
             return {
-                "--dsh-es-effort-light": paletteColor(position, lightTextColors),
-                "--dsh-es-effort-dark": paletteColor(position, darkTextColors)
+                "--dsh-es-effort-light": paletteColor(position, custom ? rgb.map(c => c.map(v => Math.round(v * .45))) : lightTextColors),
+                "--dsh-es-effort-dark": paletteColor(position, custom ? rgb.map(c => c.map(v => Math.round(v + (255 - v) * .6))) : darkTextColors)
             };
         };
         const starHash = (index, salt) => (((Math.imul(index + 1, salt * 2654435761) >>> 8) % 1000) / 1000);
@@ -815,70 +897,414 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
             return select({ draft: "", imageIds: [], draftRev: 0, phase: "plain", occurrences: [], queue: [] });
         }
 
-        function SettingsPage() {
-            const snapshot = react.useSyncExternalStore(settingsStore.subscribe, settingsStore.getSnapshot);
-            const [draft, setDraft] = react.useState(() => normalizeSettings(snapshot.value));
-            const [dirty, setDirty] = react.useState(false);
-            const [revision, setRevision] = react.useState(snapshot.revision);
-            const [saving, setSaving] = react.useState(false);
-            const [message, setMessage] = react.useState("");
+        const ULTRA_VERT = `#version 300 es
+      layout(location=0) in vec2 a_pos;
+      out vec2 v_uv;
+      void main(){ v_uv=a_pos*0.5+0.5; gl_Position=vec4(a_pos,0.0,1.0); }
+    `;
+        const ULTRA_FRAG_SIM = `#version 300 es
+      precision highp float;
+      in vec2 v_uv; out vec4 fc;
+      uniform float u_time, u_slider, u_elapsed;
+      uniform vec3 u_ember, u_glow, u_core;
+      uniform sampler2D u_back;
+      float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+      void main(){
+        vec2 uv=v_uv;
+        vec2 g=uv*vec2(72.0,6.0);
+        vec2 id=floor(g);
+        vec2 cf=fract(g);
+        float h=hash(id);
+        vec2 ap=abs(cf-0.5);
+        float cell=smoothstep(0.34,0.22,max(ap.x*0.9,ap.y));
+        vec3 prev=texture(u_back,uv).rgb;
+        float fade_mask = smoothstep(0.0, 0.45, uv.x);
+        vec3 decay = prev * 0.90 * fade_mask;
+        float act=smoothstep(0.95,1.0,u_slider);
+        if(act<0.01||u_elapsed<0.0){ fc=vec4(decay,1.0); return; }
+        float t=u_time;
+        float cellDelay = h * 1.2;
+        float cellAge   = max(u_elapsed - cellDelay, 0.0);
+        float ignited   = step(0.001, cellAge);
+        float cellSpd   = 0.85 + h * 0.30;
+        float eased = 1.0 - pow(1.0 - clamp(cellAge / 2.5, 0.0, 1.0), 3.0);
+        float dist  = eased * u_slider * cellSpd * ignited;
+        float cellOff = (h - 0.5) * 0.05;
+        float front   = max(u_slider - dist - cellOff, 0.02);
+        float tail    = max(u_slider - front, 0.001);
+        float inZ   = step(front - 0.003, uv.x) * step(uv.x, u_slider + 0.003);
+        float dn    = clamp(max(u_slider - uv.x, 0.0) / tail, 0.0, 1.0);
+        float bright = pow(1.0 - dn, 0.65);
+        bright = max(bright, 0.04 * ignited) * inZ;
+        bright *= 1.0 - smoothstep(0.94, 1.05, dn);
+        float es = mix(0.15, 0.5, min(u_elapsed / 1.0, 1.0));
+        float vy = abs(uv.y - 0.5) * 2.0;
+        float vf = pow(max(1.0 - vy * vy * 0.45, 0.0), 0.75);
+        float ts = mix(0.85, 1.0, min(u_elapsed / 1.5, 1.0));
+        float f1 = sin(uv.x * 30.0 + t * 15.0 * ts + h * 6.28);
+        float f2 = sin(uv.x * 17.0 + t * 8.0 * ts + h * 3.14);
+        float f3 = sin(uv.x * 52.0 + t * 25.0 * ts + h * 10.0);
+        float flame = smoothstep(0.08, 0.92, (f1 + f2 * 0.5 + f3 * 0.25) * 0.35 + 0.5);
+        float r1 = sin(dn * 16.0 - t * 5.0 * ts + h * 3.0);
+        float r2 = sin(dn * 8.0 - t * 2.5 * ts + h * 5.0);
+        float rhythm = smoothstep(-0.15, 0.55, r1) * (r2 * 0.5 + 0.5);
+        rhythm = pow(max(rhythm, 0.0), 1.2);
+        float avgSpd = dist / max(cellAge, 0.001);
+        float age    = max(cellAge - max(u_slider - uv.x, 0.0) / max(avgSpd, 0.001), 0.0);
+        float flash  = step(0.0, age) * exp(-age * 3.2);
+        float sp  = fract(t * (0.38 + h * 0.15) + h * 7.0);
+        float sX  = u_slider - sp * tail;
+        float sY  = 0.5 + sin(sp * 11.0 + h * 6.28) * 0.28;
+        float spark = smoothstep(0.014, 0.0, abs(uv.x - sX))
+                    * smoothstep(0.18, 0.0, abs(uv.y - sY))
+                    * (1.0 - sp) * (1.0 - sp) * es;
+        float energy = bright * vf * (flame * 0.42 + rhythm * 0.38)
+                     + flash * bright * vf * 0.55
+                     + spark * 0.7 * inZ;
+        energy *= es;
+        float edgeBase = exp(-pow((uv.x - front) * 18.0, 2.0));
+        float ef1 = sin(uv.x * 45.0 + t * 20.0 * ts + h * 6.28) * 0.5 + 0.5;
+        float ef2 = sin(uv.x * 28.0 + t * 11.0 * ts + h * 3.14) * 0.5 + 0.5;
+        float edge = edgeBase * (0.25 + ef1 * ef2 * 1.5) * 1.6 * act * es;
+        float leadD    = front - uv.x;
+        float leadZone = smoothstep(0.07, 0.0, leadD) * step(0.0, leadD) * vf;
+        float h2       = hash(id + vec2(99.0, 33.0));
+        float leadF    = sin(leadD * 100.0 + t * 20.0 * ts + h2 * 6.28) * 0.5 + 0.5;
+        float leadSpark = leadZone * step(0.6, h2) * leadF * act * es * 0.5;
+        float total = energy + edge + leadSpark;
+        vec3 ember = u_ember;
+        vec3 wpur  = u_glow;
+        vec3 wht   = u_core;
+        float temp = 1.0 - dn;
+        vec3 col   = mix(ember, wpur, temp);
+        col        = mix(col, wht, pow(temp, 4.5));
+        col       *= total;
+        float pulse = sin(t * 2.8) * 0.15 + 1.0;
+        float core  = exp(-pow((uv.x - u_slider) * 16.0, 2.0));
+        col += wht * core * 2.2 * pulse * act * es;
+        col += wpur * exp(-pow((uv.x - u_slider) * 3.5, 2.0)) * 0.12 * act * es;
+        col *= cell;
+        col *= fade_mask;
+        fc = vec4(min(decay + col, vec3(1.5)), 1.0);
+      }
+    `;
+        const ULTRA_FRAG_BLUR = `#version 300 es
+      precision highp float;
+      in vec2 v_uv; out vec4 fc;
+      uniform sampler2D u_tex;
+      uniform vec2 u_dir, u_res;
+      uniform float u_ext;
+      vec3 s(vec2 uv){
+        vec3 c=texture(u_tex,uv).rgb;
+        return u_ext>0.5 && dot(c,vec3(0.2126,0.7152,0.0722))<0.3 ? vec3(0.0) : c;
+      }
+      void main(){
+        vec2 o=u_dir*1.8/u_res;
+        vec3 r=s(v_uv)*0.227027;
+        r+=s(v_uv+o)*0.194595;    r+=s(v_uv-o)*0.194595;
+        r+=s(v_uv+o*2.0)*0.121622;r+=s(v_uv-o*2.0)*0.121622;
+        r+=s(v_uv+o*3.0)*0.054054;r+=s(v_uv-o*3.0)*0.054054;
+        fc=vec4(r,1.0);
+      }
+    `;
+        const ULTRA_FRAG_COMP = `#version 300 es
+      precision highp float;
+      in vec2 v_uv; out vec4 fc;
+      uniform sampler2D u_scene, u_glow;
+      void main(){
+        vec3 s=texture(u_scene,v_uv).rgb;
+        vec3 g=texture(u_glow,v_uv).rgb;
+        fc=vec4(1.0-exp(-(s+g*1.2+s*g*0.35)*1.15),1.0);
+      }
+    `;
+        // Point-grid simulation and bloom adapted from the user's Ultracode reference.
+        // The renderer owns every GPU resource and never runs for a closed panel.
+        function UltracodeEffect({ color, onFailure }) {
+            const ref = react.useRef(null);
+            const failure = react.useRef(onFailure);
+            failure.current = onFailure;
             react.useEffect(() => {
-                if (!dirty) {
-                    setDraft(normalizeSettings(snapshot.value));
-                    setRevision(snapshot.revision);
-                }
-            }, [snapshot, dirty]);
-            const change = (field, value) => {
-                setDraft(previous => ({ ...previous, [field]: value }));
-                setDirty(true);
-                setMessage("");
-            };
-            const writable = snapshot.status === "ready" && snapshot.writable;
-            const save = async (event) => {
-                event.preventDefault();
-                if (!writable || saving || !dirty || !settingsForm) return;
-                const form = settingsForm;
-                setSaving(true);
-                setMessage("");
-                try {
-                    const accepted = await form.mutate(Object.entries(draft).map(([field, value]) => ({ op: "set", path: [field], value })), revision);
-                    if (accepted) {
-                        setDirty(false);
-                        setMessage("已保存，所有对话立即生效。");
-                    } else {
-                        // Keep edits, but let a deliberate retry use the recovered revision.
-                        setRevision(form.getSnapshot().revision);
-                        setMessage("保存未成功，配置可能已在其他窗口更改。请检查后重试。");
-                    }
-                } catch {
-                    setRevision(form.getSnapshot().revision);
-                    setMessage("保存失败，请检查连接后重试。");
-                } finally { setSaving(false); }
-            };
-            const control = (field, title, choices) => react.createElement("label", { className: "dsh-es-setting", key: field },
-                react.createElement("span", null, title),
-                choices
-                    ? react.createElement("select", { value: draft[field], disabled: saving || !writable, onChange: e => change(field, e.target.value) },
-                        choices.map(([value, label]) => react.createElement("option", { key: value, value }, label)))
-                    : react.createElement("input", { type: "checkbox", checked: draft[field], disabled: saving || !writable, onChange: e => change(field, e.target.checked) })
-            );
-            return react.createElement("form", { className: "dsh-es-settings", onSubmit: save, "aria-label": "思考强度滑动条设置", "aria-busy": saving },
-                react.createElement("p", null, "设置适用于当前配置下的所有对话，保存后立即生效，重启后保留。"),
-                control("showModelVersion", "显示模型版本徽标"),
-                control("motion", "动效模式", [["system", "跟随系统"], ["reduced", "减少动效"], ["off", "关闭动效"]]),
-                control("effortLanguage", "强度名称语言", [["en", "英文"], ["zh", "中文"]]),
-                control("showModelDescriptions", "显示模型说明悬浮提示"),
-                control("compact", "紧凑布局"),
-                react.createElement("p", null, "减少动效会关闭星尘和扫光；关闭动效同时取消过渡。紧凑布局保留模型、版本和档位。"),
-                react.createElement("div", { className: "dsh-es-settingsActions" },
-                    react.createElement("button", { type: "submit", disabled: !writable || saving || !dirty }, saving ? "保存中…" : "保存设置"),
-                    react.createElement("button", { type: "button", disabled: !writable || saving, onClick: () => {
-                        setDraft({ ...DEFAULT_SETTINGS }); setDirty(true); setMessage("");
-                    } }, "恢复默认值")
-                ),
-                react.createElement("p", { role: "status", "aria-live": "polite" }, message || (snapshot.status === "loading" ? "正在加载设置…" : !writable ? "当前连接无法修改设置。" : ""))
-            );
+                const canvas = ref.current;
+                if (!canvas) return;
+                let dispose, active = true;
+                // Settle after parent effects, so a style-change reset cannot erase fallback.
+                const fail = () => { void Promise.resolve().then(() => { if (active) failure.current?.(); }); };
+                try { dispose = startUltracode(canvas, color, fail); }
+                catch { fail(); }
+                return () => { active = false; dispose?.(); };
+            }, [color]);
+            return react.createElement("canvas", { ref, className: "dsh-es-ultracode", "aria-hidden": true });
         }
+        function startUltracode(canvas, color, fail) {
+            const gl = canvas.getContext("webgl2", { antialias: false, preserveDrawingBuffer: false });
+            if (!gl) throw new Error("WebGL2 unavailable");
+            let disposed = false, frame = 0, targets = [], observer, intersection;
+            let visible = true, started = performance.now();
+            const programs = [], shaders = [];
+            let vao, buffer;
+            const stop = () => { if (frame) cancelAnimationFrame(frame); frame = 0; };
+            const lost = event => { event.preventDefault(); stop(); fail(); };
+            const cleanup = () => {
+                if (disposed) return;
+                disposed = true; stop(); observer?.disconnect(); intersection?.disconnect();
+                document.removeEventListener("visibilitychange", visibility);
+                canvas.removeEventListener("webglcontextlost", lost);
+                for (const target of targets) { gl.deleteFramebuffer(target.fbo); gl.deleteTexture(target.tex); }
+                targets = [];
+                for (const program of programs) gl.deleteProgram(program);
+                for (const shader of shaders) gl.deleteShader(shader);
+                if (buffer) gl.deleteBuffer(buffer);
+                if (vao) gl.deleteVertexArray(vao);
+                gl.getExtension("WEBGL_lose_context")?.loseContext();
+            };
+            const abort = () => { cleanup(); fail(); };
+            const wake = () => {
+                stop();
+                if (!disposed && visible && !document.hidden) frame = requestAnimationFrame(draw);
+            };
+            const visibility = () => wake();
+            try {
+                const shader = (type, source) => {
+                    const result = gl.createShader(type); shaders.push(result);
+                    gl.shaderSource(result, source); gl.compileShader(result);
+                    if (!gl.getShaderParameter(result, gl.COMPILE_STATUS)) throw new Error("Effect shader compilation failed");
+                    return result;
+                };
+                const vertex = shader(gl.VERTEX_SHADER, ULTRA_VERT);
+                const program = source => {
+                    const result = gl.createProgram(); programs.push(result);
+                    gl.attachShader(result, vertex); gl.attachShader(result, shader(gl.FRAGMENT_SHADER, source)); gl.linkProgram(result);
+                    if (!gl.getProgramParameter(result, gl.LINK_STATUS)) throw new Error("Effect program link failed");
+                    const uniforms = new Map();
+                    return { id: result, u(name) {
+                        if (!uniforms.has(name)) uniforms.set(name, gl.getUniformLocation(result, name));
+                        return uniforms.get(name);
+                    } };
+                };
+                const sim = program(ULTRA_FRAG_SIM), blur = program(ULTRA_FRAG_BLUR), comp = program(ULTRA_FRAG_COMP);
+                vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+                buffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+                gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+                const rgb = hexRgb(color).map(value => value / 255);
+                const makeTarget = () => {
+                    const target = { fbo: gl.createFramebuffer(), tex: gl.createTexture() };
+                    targets.push(target);
+                    gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo); gl.bindTexture(gl.TEXTURE_2D, target.tex);
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, target.tex, 0);
+                    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error("Effect framebuffer unavailable");
+                    gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT);
+                    return target;
+                };
+                const resize = () => {
+                    if (disposed) return;
+                    const bounds = canvas.getBoundingClientRect(), ratio = Math.min(window.devicePixelRatio || 1, 2);
+                    const width = Math.max(1, Math.round(bounds.width * ratio)), height = Math.max(1, Math.round(bounds.height * ratio));
+                    if (width === canvas.width && height === canvas.height && targets.length) return;
+                    canvas.width = width; canvas.height = height;
+                    for (const target of targets) { gl.deleteFramebuffer(target.fbo); gl.deleteTexture(target.tex); }
+                    targets = []; for (let i = 0; i < 4; i++) makeTarget();
+                    started = performance.now();
+                };
+                const pass = (p, target) => { gl.useProgram(p.id); gl.bindFramebuffer(gl.FRAMEBUFFER, target?.fbo ?? null); };
+                const texture = (tex, unit) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); };
+                const render = time => {
+                    gl.viewport(0,0,canvas.width,canvas.height); gl.bindVertexArray(vao);
+                    const [a,b,h,v] = targets;
+                    pass(sim, b); gl.uniform1f(sim.u("u_time"), time / 1000);
+                    gl.uniform1f(sim.u("u_elapsed"), (time - started) / 1000); gl.uniform1f(sim.u("u_slider"), 1);
+                    gl.uniform3f(sim.u("u_ember"), ...rgb.map(c => c * .32));
+                    gl.uniform3f(sim.u("u_glow"), ...rgb);
+                    gl.uniform3f(sim.u("u_core"), ...rgb.map(c => c + (1 - c) * .85));
+                    texture(a.tex, 0); gl.uniform1i(sim.u("u_back"), 0); gl.drawArrays(gl.TRIANGLES, 0, 6);
+                    pass(blur, h); gl.uniform2f(blur.u("u_res"), canvas.width, canvas.height);
+                    gl.uniform2f(blur.u("u_dir"), 1, 0); gl.uniform1f(blur.u("u_ext"), 1);
+                    texture(b.tex, 0); gl.uniform1i(blur.u("u_tex"), 0); gl.drawArrays(gl.TRIANGLES, 0, 6);
+                    pass(blur, v); gl.uniform2f(blur.u("u_dir"), 0, 1); gl.uniform1f(blur.u("u_ext"), 0);
+                    texture(h.tex, 0); gl.drawArrays(gl.TRIANGLES, 0, 6);
+                    pass(comp, null); texture(b.tex, 0); gl.uniform1i(comp.u("u_scene"), 0);
+                    texture(v.tex, 1); gl.uniform1i(comp.u("u_glow"), 1); gl.drawArrays(gl.TRIANGLES, 0, 6);
+                    targets[0] = b; targets[1] = a;
+                };
+                // Assigned before the first scheduled frame, including observer callbacks.
+                draw = time => {
+                    frame = 0;
+                    if (disposed || document.hidden || !visible) return;
+                    try { render(time); frame = requestAnimationFrame(draw); } catch { abort(); }
+                };
+                resize();
+                observer = new ResizeObserver(() => { try { resize(); } catch { abort(); } }); observer.observe(canvas);
+                if (typeof IntersectionObserver !== "undefined") {
+                    intersection = new IntersectionObserver(entries => { visible = entries[0]?.isIntersecting !== false; wake(); });
+                    intersection.observe(canvas);
+                }
+                canvas.addEventListener("webglcontextlost", lost);
+                document.addEventListener("visibilitychange", visibility); wake();
+                return cleanup;
+            } catch (error) { cleanup(); throw error; }
+            function draw() {}
+        }
+
+
+        function SettingsPage() {
+            const h = react.createElement;
+            const snapshot = react.useSyncExternalStore(settingsStore.subscribe, settingsStore.getSnapshot);
+            const catalog = react.useSyncExternalStore(catalogStore.subscribe, catalogStore.getSnapshot);
+            const [draft, setDraft] = react.useState(() => normalizeSettings(snapshot.value));
+            const [saveState, setSaveState] = react.useState("saved");
+            const [message, setMessage] = react.useState("");
+            const [colorDraft, setColorDraft] = react.useState(null);
+            const queue = react.useRef({ tail: Promise.resolve(), pending: [], error: "", alive: true });
+            const dragging = react.useRef(null);
+            react.useEffect(() => { queue.current.alive = true; return () => { queue.current.alive = false; }; }, []);
+            react.useEffect(() => {
+                if (!queue.current.pending.length) setDraft(normalizeSettings(snapshot.value));
+            }, [snapshot]);
+            const writable = snapshot.status === "ready" && snapshot.writable;
+            const change = (changes) => {
+                if (!writable || !settingsForm) return;
+                const owner = queue.current;
+                const task = { changes, form: settingsForm };
+                owner.pending.push(task);
+                owner.error = "";
+                setDraft(previous => ({ ...previous, ...changes }));
+                setSaveState("saving");
+                setMessage("");
+                owner.tail = owner.tail.then(async () => {
+                    try {
+                        const ops = Object.entries(changes).map(([field, value]) => ({ op: "set", path: [field], value }));
+                        // Remove the obsolete field when this configuration is next edited.
+                        if (Object.hasOwn(task.form.getSnapshot().value ?? {}, "motion")) ops.push({ op: "unset", path: ["motion"] });
+                        const accepted = await task.form.mutate(ops, task.form.getSnapshot().revision);
+                        if (!accepted) throw new Error("rejected");
+                    } catch {
+                        owner.error = "保存失败，未保存的修改已恢复。请检查连接后重新修改。";
+                    } finally {
+                        owner.pending.shift();
+                        if (owner.alive && task.form === settingsForm) {
+                            const value = normalizeSettings(task.form.getSnapshot().value);
+                            for (const pending of owner.pending) Object.assign(value, pending.changes);
+                            setDraft(value);
+                            setSaveState(owner.pending.length ? "saving" : owner.error ? "error" : "saved");
+                            setMessage(owner.error);
+                        }
+                    }
+                });
+            };
+            const row = (key, title, description, control) => h("div", { className: "dsh-es-setting", key },
+                h("div", { className: "dsh-es-settingText" }, h("span", null, title), description && h("p", null, description)), control);
+            const toggle = (key, title, description) => row(key, title, description,
+                h("button", { type: "button", className: "dsh-es-switch", role: "switch", "aria-checked": draft[key],
+                    "aria-label": title, disabled: !writable, onClick: () => change({ [key]: !draft[key] }) }, h("span")));
+            const select = (label, value, onChange, choices, disabled = false) => h("select", {
+                "aria-label": label, value, disabled: !writable || disabled, onChange: event => onChange(event.target.value)
+            }, choices.map(([id, title]) => h("option", { key: id, value: id }, title)));
+            const button = (title, onClick, props = {}) => h("button", { type: "button", className: "dsh-es-button",
+                disabled: !writable, onClick, ...props }, title);
+            const section = (title, ...children) => h("section", { "aria-label": title }, h("h3", null, title), ...children);
+            const groups = sortedGroups(catalog.groups, draft);
+            const selected = groups.find(g => g.id === draft.defaultProvider)?.models.find(m => m.id === draft.defaultModel);
+            const modelChoices = [["", "跟随 DSH 默认"]];
+            for (const group of groups) for (const model of group.models) {
+                const duplicate = group.models.some(other => other.id !== model.id && other.name === model.name);
+                modelChoices.push([JSON.stringify([group.id, model.id]), `${group.name} · ${model.name}${duplicate ? ` (${model.id})` : ""}`]);
+            }
+            const selectedKey = draft.defaultProvider && draft.defaultModel ? JSON.stringify([draft.defaultProvider, draft.defaultModel]) : "";
+            if (selectedKey && !selected) modelChoices.push([selectedKey, `${draft.defaultModel}（暂不可用）`]);
+            const effortChoices = [["", "模型默认"], ...orderEfforts(selected?.reasoning?.efforts ?? []).map(level => [level.id, levelName(level, draft.effortLanguage)])];
+            const colors = colorDraft ?? draft.colors;
+            const move = (provider, from, to) => {
+                const items = provider === null ? groups : groups.find(g => g.id === provider)?.models ?? [];
+                const ids = items.map(item => item.id);
+                if (from < 0 || to < 0 || to >= ids.length || from === to) return;
+                ids.splice(to, 0, ids.splice(from, 1)[0]);
+                if (provider === null) change({ providerOrder: ids });
+                else change({ modelOrder: { ...draft.modelOrder, [provider]: ids } });
+            };
+            const sortRow = (provider, item, index, count, heading) => h("div", {
+                className: `dsh-es-sortRow${heading ? " dsh-es-sortHeading" : ""}`, key: item.id,
+                draggable: writable,
+                onDragStart: event => {
+                    event.stopPropagation(); dragging.current = { provider, id: item.id };
+                    event.dataTransfer.setData("text/plain", item.id); event.dataTransfer.effectAllowed = "move";
+                },
+                onDragEnd: () => { dragging.current = null; },
+                onDragOver: event => { if (dragging.current?.provider === provider) event.preventDefault(); },
+                onDrop: event => {
+                    event.preventDefault(); event.stopPropagation();
+                    const source = dragging.current; dragging.current = null;
+                    if (!source || source.provider !== provider) return;
+                    const items = provider === null ? groups : groups.find(g => g.id === provider)?.models ?? [];
+                    move(provider, items.findIndex(candidate => candidate.id === source.id), index);
+                }
+            }, h("span", { className: "dsh-es-sortHandle", "aria-hidden": true }, "⠿"),
+                h("span", { className: "dsh-es-sortName", title: item.id }, item.name),
+                button("↑", () => move(provider, index, index - 1), { disabled: !writable || index === 0, "aria-label": `上移${heading ? "分组" : "模型"} ${item.name}` }),
+                button("↓", () => move(provider, index, index + 1), { disabled: !writable || index === count - 1, "aria-label": `下移${heading ? "分组" : "模型"} ${item.name}` }));
+            return h("form", { className: "dsh-es-settings", onSubmit: event => event.preventDefault(),
+                "aria-label": "思考强度滑动条设置", "aria-busy": saveState === "saving" },
+                h("p", null, "修改后自动保存并生效，重启后保留。默认模型与思考等级仅用于新建会话。"),
+                section("显示与布局",
+                    toggle("showModelVersion", "显示模型版本徽标", "在模型入口、当前模型和模型列表中显示版本。"),
+                    row("effortLanguage", "强度名称语言", "选择滑动条思考档位的显示语言。", select("强度名称语言", draft.effortLanguage, value => change({ effortLanguage: value }), [["en", "英文"], ["zh", "中文"]])),
+                    toggle("showModelDescriptions", "显示模型说明悬浮提示", "悬停或聚焦模型时查看说明；限制提示始终保留。"),
+                    toggle("compact", "紧凑布局", "缩小入口与面板间距，保留模型、版本和档位。")),
+                section("动效与配色",
+                    row("maxEffect", "最强档动效样式", "仅改变当前模型最高思考档的动效，其他档位保持现状。",
+                        select("最强档动效样式", draft.maxEffect, value => change({ maxEffect: value }), [["classic", "经典星尘"], ["ultracode", "Ultracode 点阵"]])),
+                    h("p", null, "两种样式共用低／中／高三色渐变。点阵从最高档颜色派生暗部和高光。"),
+                    h("div", { className: "dsh-es-palettes", "aria-label": "配色预设" }, COLOR_PRESETS.map(([title, palette]) =>
+                        button(h(react.Fragment, null, h("i", { style: { background: `linear-gradient(90deg, ${palette.join(",")})` }, "aria-hidden": true }), title),
+                            () => { setColorDraft(null); change({ colors: palette }); }, { key: title, className: "dsh-es-button dsh-es-palette", "aria-label": `${title}配色`, "aria-pressed": palette.every((c, i) => c === colors[i]) }))),
+                    h("div", { className: "dsh-es-colors" }, ["低档颜色", "中档颜色", "高档颜色"].map((title, index) => h("label", { key: title, className: "dsh-es-color" },
+                        h("input", { type: "color", "aria-label": title, value: colors[index], disabled: !writable,
+                            onInput: event => { const next = colors.slice(); next[index] = event.target.value; setColorDraft(next); },
+                            onChange: event => { const next = colors.slice(); next[index] = event.target.value; setColorDraft(null); change({ colors: next }); } }),
+                        h("span", null, title, h("small", null, colors[index].toUpperCase()))))),
+                    h(EffectPreview, { key: `${draft.maxEffect}/${colors.join("")}`, colors, maxEffect: draft.maxEffect }),
+                    h("div", { className: "dsh-es-palettes" }, button("恢复默认配色", () => { setColorDraft(null); change({ colors: [...DEFAULT_SETTINGS.colors] }); }))),
+                section("新会话默认值",
+                    row("defaultModel", "默认模型", "只在新建会话时应用一次，之后可自由切换。", select("默认模型", selectedKey, value => {
+                        const [provider, model] = value ? JSON.parse(value) : ["", ""];
+                        change({ defaultProvider: provider, defaultModel: model, defaultEffort: "" });
+                    }, modelChoices, catalog.status !== "ready")),
+                    row("defaultEffort", "默认思考等级", selected?.reasoning?.efforts?.length ? "仅列出所选模型支持的思考等级。" : "选择支持思考等级的默认模型后可设置。",
+                        select("默认思考等级", effortChoices.some(([id]) => id === draft.defaultEffort) ? draft.defaultEffort : "", value => change({ defaultEffort: value }), effortChoices, !selected?.reasoning?.efforts?.length)),
+                    selectedKey && !selected && h("p", { className: "dsh-es-error", role: "status" }, "默认模型暂不可用，新会话将沿用 DSH 默认。"),
+                    selected && draft.defaultEffort && !effortChoices.some(([id]) => id === draft.defaultEffort) && h("p", { role: "status" }, "已保存的思考等级不再受支持，将使用模型默认。")),
+                section("模型列表排序", h("p", null, "拖动行或使用上移／下移按钮调整顺序。新模型追加到所属分组末尾。"),
+                    catalog.status === "loading" && h("p", null, "正在加载模型…"),
+                    catalog.error && h("p", { className: "dsh-es-error", role: "alert" }, catalog.error),
+                    catalog.status === "error" && button("重新加载模型", () => reloadCatalog()),
+                    groups.map((group, index) => h("div", { className: "dsh-es-sortGroup", key: group.id },
+                        sortRow(null, group, index, groups.length, true),
+                        group.models.map((model, modelIndex) => sortRow(group.id, model, modelIndex, group.models.length, false)))),
+                    h("div", { className: "dsh-es-palettes" }, button("恢复原始顺序", () => change({ providerOrder: [], modelOrder: {} })))),
+                h("div", { className: "dsh-es-settingsActions" },
+                    h("button", { type: "button", className: "dsh-es-button dsh-es-saveState", disabled: true, "data-state": saveState },
+                        !writable ? "设置只读" : saveState === "saving" ? "正在自动保存…" : saveState === "error" ? "保存失败" : "已自动保存"),
+                    button("恢复默认值", () => { setColorDraft(null); change({ ...DEFAULT_SETTINGS }); })),
+                h("p", { role: message ? "alert" : "status", "aria-live": "polite", className: message ? "dsh-es-error" : "" },
+                    message || (snapshot.status === "loading" ? "正在加载设置…" : !writable ? "当前连接无法修改设置。" : "")));
+        }
+
+        function EffectPreview({ colors, maxEffect }) {
+            const h = react.createElement;
+            const [failed, setFailed] = react.useState(false);
+            return h("div", { className: "dsh-es-preview", "aria-label": "最高档动效预览" },
+                h("p", null, `最高档预览 · ${maxEffect === "ultracode" ? "Ultracode 点阵" : "经典星尘"}${failed ? "（已回退经典）" : ""}`),
+                h("div", { className: "dsh-es-previewTrack", style: { background: `linear-gradient(90deg, ${colors.join(",")})` } },
+                    maxEffect === "ultracode" && !failed ? h(UltracodeEffect, { color: colors[2], onFailure: () => setFailed(true) })
+                        : h("div", { className: "dsh-es-sliderSparkles", "aria-hidden": true }, MAX_SPARKLES.map((style, index) => h("span", {
+                            key: index, className: "dsh-es-sliderSparkle", "data-visible": "true", style: { ...style, left: `${4 + index * 5}%` }
+                        }, h("span", { className: "dsh-es-sliderSparkleDot" }))))));
+        }
+
 
         function EffortSliderSeat({ locked, available, directory, load, select, useSession, useInput }) {
             const settingsSnapshot = react.useSyncExternalStore(settingsStore.subscribe, settingsStore.getSnapshot);
@@ -897,8 +1323,9 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
             const [draft, setDraft] = react.useState(-1);
             const [pendingIndex, setPendingIndex] = react.useState(-1);
             const [reducedMotion, setReducedMotion] = react.useState(() => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-            const stopDecorations = reducedMotion || settings.motion !== "system";
-            const motionMode = settings.motion === "off" || (settings.motion === "system" && reducedMotion) ? "off" : settings.motion;
+            // Legacy motion values no longer affect playback; retain the existing OS accessibility preference.
+            const stopDecorations = reducedMotion;
+            const motionMode = reducedMotion ? "off" : "system";
             const rootRef = react.useRef(null);
             const railRef = react.useRef(null);
             const pointerRef = react.useRef(null);
@@ -908,6 +1335,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
             const scopeRef = react.useRef(null);
             const [dragPosition, setDragPosition] = react.useState(null);
             const [selectionError, setSelectionError] = react.useState(null);
+            const [ultraFailed, setUltraFailed] = react.useState(false);
             const inputSnapshot = (useInput ?? defaultUseInput)((s) => s);
             const draftHasImages = (inputSnapshot?.imageIds?.length ?? 0) > 0;
             // Current Desktop exposes attachment ids, not image ids or kinds.
@@ -1007,6 +1435,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
             // A scope change invalidates callbacks before effects run, including
             // promise completions from the model that has just been replaced.
             const scopeKey = `${state.current?.provider}\0${state.current?.model}`;
+            react.useEffect(() => setUltraFailed(false), [scopeKey, settings.maxEffect]);
             scopeRef.current = scopeKey;
             const clearDrag = () => {
                 const pointer = pointerRef.current;
@@ -1231,7 +1660,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                     ? state.error
                         ? react.createElement("div", { className: "dsh-es-menuError" }, state.error)
                         : react.createElement("div", { className: "dsh-es-menuEmpty" }, "没有可用的模型。")
-                    : state.groups.map((group) => react.createElement(
+                    : sortedGroups(state.groups, settings).map((group) => react.createElement(
                         react.Fragment,
                         { key: group.id },
                         react.createElement("div", { className: "dsh-es-menuGroup" }, group.name),
@@ -1311,15 +1740,17 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                     ));
 
             const atMax = !singleNotch && displayedIndex === levels.length - 1;
+            const ultraActive = atMax && settings.maxEffect === "ultracode" && !stopDecorations && !ultraFailed;
             const knobLeft = offsetFor(shownPosition);
             const fillWidth = shownPosition <= 0 ? "0px" : knobLeft;
-            const color = paletteColor(shownPosition, fillColors);
-            const fillBackground = `linear-gradient(90deg, #bfd993, ${color})`;
+            const color = paletteColor(shownPosition, settings.colors.map(hexRgb));
+            const fillBackground = `linear-gradient(90deg, ${settings.colors[0]}, ${color})`;
 
             const slider = currentChoice !== undefined && levels.length > 0
                 ? react.createElement(
                     "div",
-                    { className: "dsh-es-sliderWrap", style: effortColors(shownPosition, displayedLevel) },
+                    { className: "dsh-es-sliderWrap", style: { ...effortColors(shownPosition, displayedLevel, settings.colors),
+                        "--dsh-es-accent": color, "--dsh-es-gradient": `linear-gradient(90deg, ${settings.colors.join(",")})` } },
                     react.createElement(
                         "div",
                         { className: "dsh-es-sliderHead", "data-max": atMax ? "true" : undefined },
@@ -1333,6 +1764,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                             ref: railRef,
                             "data-dragging": dragPosition !== null ? "true" : "false",
                             "data-energy": energy > 0 ? "true" : "false",
+                            "data-ultracode": ultraActive ? "true" : "false",
                             style: { "--dsh-es-energy": energy, "--dsh-es-stars-opacity": energy > 0 ? .6 + .4 * energy : 0 }
                         },
                         react.createElement(
@@ -1352,7 +1784,8 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                                         "data-visible": index < starCount ? "true" : "false",
                                         style: { ...style, visibility: index < starCount ? "visible" : "hidden" }
                                     }, react.createElement("span", { className: "dsh-es-sliderSparkleDot" })))
-                                )
+                                ),
+                                ultraActive ? react.createElement(UltracodeEffect, { color: settings.colors[2], onFailure: () => setUltraFailed(true) }) : null
                             )
                         ),
                         react.createElement(
@@ -1485,7 +1918,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                     },
                     react.createElement("span", { className: "dsh-es-triggerLabel" }, open ? "选择强度" : currentChoice ? renderModelLabel(currentChoice.group, currentChoice.model) : modelLabel),
                     !open && effortLabel !== undefined
-                        ? react.createElement("span", { className: "dsh-es-triggerEffort", style: effortColors(positionFor(currentIndex, levels.length), currentLevel) }, effortLabel)
+                        ? react.createElement("span", { className: "dsh-es-triggerEffort", style: effortColors(positionFor(currentIndex, levels.length), currentLevel, settings.colors) }, effortLabel)
                         : null,
                     chevronIcon(ICON_CHEVRON_DOWN, open ? "dsh-es-chevron dsh-es-chevronOpen" : "dsh-es-chevron")
                 ),
@@ -1506,6 +1939,64 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                     )
                     : null
             );
+        }
+
+        function installNewSessionDefaults(sessions) {
+            const seen = new Set(), eligible = new Set(), consumed = new Set(), checks = new Set(), disposers = [];
+            let baseline = false, disposed = false;
+            const list = sessions.list;
+            const sync = () => {
+                const value = list?.getSnapshot?.();
+                if (value?.phase !== "ready" || !Array.isArray(value.ids)) return;
+                if (!baseline) { for (const id of value.ids) seen.add(id); baseline = true; }
+                else for (const id of value.ids) if (!seen.has(id)) { seen.add(id); eligible.add(id); }
+                for (const check of checks) check();
+            };
+            if (list?.subscribe) disposers.push(list.subscribe(sync));
+            sync();
+            return {
+                attach(id, directory) {
+                    if (!list?.subscribe || !sessions.binding || disposed) return;
+                    const binding = sessions.binding(id);
+                    const session = binding?.session;
+                    const projected = session?.projections?.faceOf?.("modelSelection");
+                    if (!session?.getSnapshot || !projected?.getSnapshot) return;
+                    const check = () => {
+                        if (disposed || consumed.has(id) || !eligible.has(id)) return;
+                        const state = session.getSnapshot(), intent = projected.getSnapshot();
+                        if (state.blank !== true || sessions.subagentAddress(id) !== undefined
+                            || (intent !== undefined && (intent.next !== null || intent.lastUsed !== null))) {
+                            consumed.add(id); return;
+                        }
+                        // Unknown projections must never be treated as an untouched session.
+                        const config = settingsStore.getSnapshot();
+                        if (intent === undefined || config.status !== "ready") return;
+                        const settings = normalizeSettings(config.value);
+                        if (!settings.defaultProvider || !settings.defaultModel) { consumed.add(id); return; }
+                        const snapshot = directory.store.getSnapshot();
+                        if (snapshot.pending || snapshot.status === "selecting") { consumed.add(id); return; }
+                        if (snapshot.status !== "ready") return;
+                        const model = snapshot.groups.find(g => g.id === settings.defaultProvider)?.models.find(m => m.id === settings.defaultModel);
+                        consumed.add(id); // Mark before any async operation: exactly one attempt per new session.
+                        if (!model) return;
+                        const effort = settings.defaultEffort && model.reasoning?.efforts.some(level => level.id === settings.defaultEffort)
+                            ? settings.defaultEffort : model.reasoning?.defaultEffort;
+                        const selection = { provider: settings.defaultProvider, model: settings.defaultModel,
+                            ...(effort === undefined ? {} : { reasoningEffort: effort }) };
+                        if (snapshot.current?.provider === selection.provider && snapshot.current?.model === selection.model
+                            && (snapshot.current.reasoningEffort ?? model.reasoning?.defaultEffort) === effort) return;
+                        void directory.select(selection).catch(() => {});
+                    };
+                    checks.add(check);
+                    const stops = [directory.store.subscribe(check), projected.subscribe?.(check), session.subscribe?.(check), settingsStore.subscribe(check)].filter(Boolean);
+                    check();
+                    void directory.load().then(check, () => {});
+                    const stop = () => { checks.delete(check); for (const off of stops) off(); };
+                    disposers.push(stop);
+                    return stop;
+                },
+                dispose() { disposed = true; for (const stop of disposers) stop(); checks.clear(); }
+            };
         }
 
         const apply = (ctx) => {
@@ -1556,6 +2047,31 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                 // per-session model directory owned by ui-model-selection),
                 // sessions (subagent addressing).
                 const { slots, modelDirectories: models, sessions } = scope;
+                const defaults = installNewSessionDefaults(sessions);
+                const attached = new Set();
+                let active = true, generation = 0;
+                const refreshCatalog = async () => {
+                    if (!scope.remote?.session?.modelCatalog) return;
+                    const request = ++generation;
+                    publishCatalog({ ...catalogSnapshot, status: "loading", error: "" });
+                    try {
+                        const response = await scope.remote.session.modelCatalog();
+                        if (!response.ok) throw new Error("catalog rejected");
+                        if (active && request === generation) publishCatalog({ status: "ready", groups: response.value.groups, error: "" });
+                    } catch {
+                        if (active && request === generation) publishCatalog({ ...catalogSnapshot, status: "error", error: "模型目录加载失败，请检查连接后重新加载。" });
+                    }
+                };
+                reloadCatalog = refreshCatalog;
+                void refreshCatalog();
+                const catalogStops = [];
+                if (scope.remote?.$on) for (const event of ["llm/adapters-updated", "settings/document-updated", "credentials/record-updated", "credentials/reference-updated"]) {
+                    const stop = scope.remote.$on(event, refreshCatalog); if (typeof stop === "function") catalogStops.push(stop);
+                }
+                if (scope.on) {
+                    const stop = scope.on("connection/reset", () => { publishCatalog({ status: "loading", groups: [], error: "" }); void refreshCatalog(); });
+                    if (typeof stop === "function") catalogStops.push(stop);
+                }
 
                 // Diagnostic: confirm the client entry activated. If the
                 // composer still shows the official seat, this line tells
@@ -1567,7 +2083,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                 // `slots.inject` ties the registration to the declaration
                 // lifetime of ui-conversation's composer-bar entry, so the
                 // plugin composes without importing or forking the owner.
-                return slots.inject(slotName, () => {
+                const stopSeat = slots.inject(slotName, () => {
                     if (typeof console !== "undefined") {
                         console.info("[thinking-effort-slide-bar] seat registered", { slotName, priority: -100 });
                     }
@@ -1578,6 +2094,16 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                             try {
                                 const directory = models.directoryFor(sessionId);
                                 const available = sessions.subagentAddress(sessionId) === void 0;
+                                if (available && !attached.has(directory)) {
+                                    attached.add(directory);
+                                    const stop = defaults.attach(sessionId, directory);
+                                    const sessionScope = sessions.scope?.(sessionId);
+                                    if (stop && sessionScope?.effect) sessionScope.effect(() => () => { stop(); attached.delete(directory); });
+                                }
+                                // Older clients can still populate settings from a loaded composer directory.
+                                if (!scope.remote?.session?.modelCatalog && directory.store.getSnapshot().groups.length) {
+                                    publishCatalog({ status: "ready", groups: directory.store.getSnapshot().groups, error: "" });
+                                }
                                 return {
                                     available,
                                     directory: directory.store,
@@ -1604,6 +2130,11 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                         }
                     }, EffortSliderSeat);
                 });
+                return () => {
+                    active = false; generation++; stopSeat?.(); defaults.dispose();
+                    for (const stop of catalogStops) stop();
+                    if (reloadCatalog === refreshCatalog) reloadCatalog = () => Promise.resolve();
+                };
             });
         };
         // Host-owned Config is mirrored by configForms, rather than a second
