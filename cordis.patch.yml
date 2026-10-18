@@ -3,9 +3,9 @@
 # Official bundle semantics (see deepseek-harness "Package and install a
 # plugin"): a bundle ships one configuration layer; `dsh plugin
 # --profile <name> add ...` appends this package to dsh.profile.bundles and
-# applies this insert. The row only has to exist so the Loader scans the
-# package and discovers its `dsh.client` declaration, which registers the
-# Web Client bundle (./client) with the host client-modules table.
+# applies this insert. The row declares the live settings schema and lets
+# the Loader discover `dsh.client`, which registers the Web Client bundle
+# (./client) with the host client-modules table.
 #
 # The same layer applies to the DSH Desktop profile (dsh plugin --profile
 # desktop add ...) — the desktop shell composes dsh-base + dsh-web-app +

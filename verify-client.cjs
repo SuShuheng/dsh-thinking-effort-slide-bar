@@ -63,6 +63,8 @@ const react = {
 };
 
 let registered = null;
+let settingsRegistration = null;
+const optionalBranches = new Map();
 const directoryCalls = { load: 0, select: [] };
 const listeners = new Set();
 const snapshot = {
@@ -166,13 +168,16 @@ const slots = {
         return dispose;
     },
     register(options, component) {
-        registered = { options, component };
+        if (options.name === "plugins.bundle.config") settingsRegistration = { options, component };
+        else registered = { options, component };
         return () => undefined;
     }
 };
 
 const ctx = {
     inject(_services, callback) {
+        if (_services.includes("configForms")) optionalBranches.set("settings", callback);
+        if (_services.includes("locale")) optionalBranches.set("release", callback);
         // Real Cordis exposes declared injected services as properties on the
         // injection scope; mirror that here (in addition to `get`).
         const scope = {
@@ -254,7 +259,7 @@ if (!styleTag.textContent.includes(".dsh-es-sliderFill")) throw new Error("slide
 if (!styleTag.textContent.includes(".dsh-es-sliderTicks")) throw new Error("slider must render embedded notch markers");
 if (!styleTag.textContent.includes("z-index: 3")) throw new Error("native input must sit above the visual rail");
 if (!styleTag.textContent.includes("accent-color: transparent")) throw new Error("native slider accent must not paint leftover fill");
-const menuCss = styleTag.textContent.match(/\.dsh-es-menu\s*\{[^}]*\}/)?.[0] ?? "";
+const menuCss = styleTag.textContent.match(/^\.dsh-es-menu\s*\{[^}]*\}/m)?.[0] ?? "";
 if (!menuCss.includes("width: min(258px, calc(100vw - 24px))")) {
     throw new Error("popover must use the compact reference width");
 }
@@ -1272,8 +1277,154 @@ assert.ok(!text(triggerOf()).includes('选择强度'));
 for (const value of effectValues.values()) value.cleanup?.();
 console.log("- continuous pointer, cancellation, snap, rollback, delayed confirmation and effect cleanup passed");
 
-console.log("all checks passed");
 console.log("- module shape: name/inject/apply ok; slot shadow priority =", registered.options.priority);
 console.log("- trigger label:", triggerLabel);
 console.log("- popover floats above trigger (absolute, bottom: calc(100% + 8px))");
 console.log("- model list replaces the slider in the same popover; slider submits:", JSON.stringify(selected));
+
+// v1.5.6: exercise the actual Host schema and the client configuration/label
+// adapters, including independent injection lifetimes and rejected writes.
+async function verifySettingsAndVersions() {
+    const { Config } = await import("./host.js");
+    const defaults = { showModelVersion: true, motion: "system", effortLanguage: "en", showModelDescriptions: true, compact: false };
+    const parsed = Config({});
+    for (const [key, value] of Object.entries(defaults)) assert.equal(parsed[key].get(), value);
+    assert.throws(() => Config({ motion: "invalid" }));
+    assert.throws(() => Config({ effortLanguage: "invalid" }));
+    assert.throws(() => Config({ compact: "yes" }));
+
+    let formSnapshot = { status: "ready", writable: true, value: { ...defaults }, revision: 1 };
+    const formListeners = new Set();
+    let outcome = true;
+    const mutations = [];
+    const form = {
+        getSnapshot: () => formSnapshot,
+        subscribe(listener) { formListeners.add(listener); return () => formListeners.delete(listener); },
+        async mutate(ops, revision) {
+            mutations.push({ ops, revision });
+            if (outcome === "throw") throw new Error("offline");
+            if (!outcome) { updateSettings({}, { revision: formSnapshot.revision + 1 }); return false; }
+            updateSettings(Object.fromEntries(ops.map(op => [op.path[0], op.value])), { revision: formSnapshot.revision + 1 });
+            return true;
+        }
+    };
+    function updateSettings(value, extra = {}) {
+        formSnapshot = { ...formSnapshot, ...extra, value: { ...formSnapshot.value, ...value } };
+        for (const listener of formListeners) listener();
+    }
+    const stopSettings = optionalBranches.get("settings")({ slots, configForms: { get(namespace) {
+        assert.equal(namespace, "thinking-effort-slide-bar"); return form;
+    } } });
+    assert.equal(settingsRegistration.options.key, "dsh-thinking-effort-slide-bar");
+
+    let releaseEntry = { locale: "deepseek-model-label-1017" };
+    let releaseText = "1017";
+    const labelListeners = new Set();
+    const localeListeners = new Set();
+    const stopRelease = optionalBranches.get("release")({
+        slots: {
+            entries: () => { throw new Error("must read elected winner when available"); },
+            entriesOfSlot: () => releaseEntry ? [releaseEntry] : [],
+            subscribe(key, listener) { assert.equal(key, "conversation.input.model.label"); labelListeners.add(listener); return () => labelListeners.delete(listener); }
+        },
+        locale: {
+            bind: () => key => { assert.equal(key, "badge.label"); return releaseText; },
+            subscribe(listener) { localeListeners.add(listener); return () => localeListeners.delete(listener); }
+        }
+    });
+    const officialGroup = snapshot.groups.find(group => group.id === "deepseek-official");
+    const officialModel = { id: "deepseek-flash", name: "DeepSeek-V4.1-Flash", description: "official release", reasoning: snapshot.groups[0].models[0].reasoning };
+    officialGroup.models.push(officialModel);
+    snapshot.current = { provider: officialGroup.id, model: officialModel.id, reasoningEffort: "high" };
+    function resetHooks() {
+        for (const effect of effectValues.values()) effect.cleanup?.();
+        stateValues.clear(); refValues.clear(); effectValues.clear();
+    }
+    resetHooks(); enableEffects = true;
+    renderAdvanced();
+    const badge = () => find(tree, n => n.props?.className === "dsh-es-modelVersion");
+    assert.equal(text(badge()), "1017");
+    assert.ok(triggerOf().props.title.includes("deepseek-flash"));
+    triggerOf().props.onClick(); renderAdvanced();
+    assert.equal(text(find(tree, n => n.props?.className === "dsh-es-modelRowValue")), "DeepSeek-V4.1-Flash1017");
+    find(tree, n => n.props?.className === "dsh-es-modelRow").props.onClick(); renderAdvanced();
+    const officialOption = () => find(tree, n => n.props?.type === "button" && n.props.title === officialModel.id);
+    assert.equal(text(find(officialOption(), n => n.props?.className === "dsh-es-modelVersion")), "1017");
+    assert.ok(find(officialOption(), n => n.props?.className === "dsh-es-menuItemInfo"));
+    updateSettings({ showModelVersion: false, showModelDescriptions: false, effortLanguage: "zh", compact: true, motion: "off" }); renderAdvanced();
+    assert.equal(badge(), undefined);
+    assert.equal(find(officialOption(), n => n.props?.className === "dsh-es-menuItemInfo"), undefined);
+    assert.equal(tree.props["data-compact"], "true");
+    assert.equal(tree.props["data-motion"], "off");
+    triggerOf().props.onClick(); renderAdvanced();
+    assert.ok(text(triggerOf()).includes("高"));
+    updateSettings({ showModelVersion: true, motion: "reduced" }); renderAdvanced();
+    assert.equal(tree.props["data-motion"], "reduced");
+    releaseEntry = { locale: "deepseek-model-label-1018" }; releaseText = "1018";
+    for (const listener of labelListeners) listener(); renderAdvanced();
+    assert.equal(text(badge()), "1018", "release comes from current contribution, never a fixed date");
+    releaseText = "badge.label";
+    for (const listener of localeListeners) listener(); renderAdvanced();
+    assert.equal(badge(), undefined, "unloaded dictionary cannot leave a stale version");
+    releaseText = "9999";
+    for (const listener of localeListeners) listener(); renderAdvanced();
+    assert.equal(badge(), undefined, "namespace/date mismatch must not guess a release");
+    releaseText = "1018";
+    for (const listener of localeListeners) listener();
+    officialModel.name = "DeepSeek-V4-Pro"; renderAdvanced();
+    assert.equal(badge(), undefined, "official Pro must not inherit the Flash badge");
+    officialModel.name = "DeepSeek-V4.1-Flash";
+    officialModel.id = "deepseek-v4.1-flash-1017";
+    snapshot.current.model = officialModel.id;
+    releaseEntry = undefined;
+    for (const listener of labelListeners) listener(); renderAdvanced();
+    assert.equal(text(badge()), "1017", "explicit model ID release works without official label plugin");
+    officialModel.name = "deepseek-v4.1-flash-1017"; renderAdvanced();
+    assert.equal(text(find(tree, n => n.props?.className === "dsh-es-modelName")), "deepseek-v4.1-flash");
+
+    // Render the real settings component with effect-aware hook bookkeeping.
+    resetHooks();
+    function renderSettings() {
+        for (let pass = 0; pass < 12; pass++) {
+            beginRender();
+            const page = settingsRegistration.component({ view: "page" });
+            const version = stateVersion;
+            for (const effect of scheduledEffects.slice()) effect();
+            if (version === stateVersion) return page;
+        }
+        throw new Error("settings effects did not settle");
+    }
+    let page = renderSettings();
+    const settingControl = (label) => find(find(page, n => n.type === "label" && text(n).includes(label)), n => n.type === "input" || n.type === "select");
+    settingControl("强度名称语言").props.onChange({ target: { value: "en" } }); page = renderSettings();
+    outcome = false;
+    await page.props.onSubmit({ preventDefault() {} }); page = renderSettings();
+    assert.ok(text(page).includes("保存未成功"));
+    assert.equal(settingControl("强度名称语言").props.value, "en", "rejected writes retain editable draft");
+    outcome = "throw";
+    await page.props.onSubmit({ preventDefault() {} }); page = renderSettings();
+    assert.ok(text(page).includes("检查连接"));
+    outcome = true;
+    await page.props.onSubmit({ preventDefault() {} }); page = renderSettings();
+    assert.ok(text(page).includes("已保存"));
+    assert.equal(formSnapshot.value.effortLanguage, "en");
+    assert.equal(mutations.at(-1).revision, 2, "retry uses recovered revision");
+    assert.equal(mutations.at(-1).ops.length, 5);
+    updateSettings({}, { writable: false }); page = renderSettings();
+    assert.equal(settingControl("紧凑布局").props.disabled, true);
+    updateSettings({}, { writable: true }); page = renderSettings();
+    find(page, n => n.type === "button" && text(n) === "恢复默认值").props.onClick(); page = renderSettings();
+    assert.equal(formSnapshot.value.compact, true, "reset is a draft until explicitly saved");
+    await page.props.onSubmit({ preventDefault() {} }); page = renderSettings();
+    assert.deepEqual(formSnapshot.value, defaults);
+    resetHooks();
+    stopRelease(); stopSettings();
+    assert.equal(labelListeners.size + localeListeners.size + formListeners.size, 0);
+    renderAdvanced();
+    assert.equal(tree.props["data-compact"], "false", "optional service removal restores default slider");
+    assert.equal(text(badge()), "1017", "explicit ID versions remain available without optional services");
+    resetHooks();
+    console.log("- v1.5.6 Host schema, persisted-form adapter, retries, readonly mode, live settings, label metadata and suffix versions passed");
+    console.log("all checks passed");
+}
+verifySettingsAndVersions().catch(error => { console.error(error); process.exitCode = 1; });

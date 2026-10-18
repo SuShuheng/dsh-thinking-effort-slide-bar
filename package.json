@@ -1,6 +1,6 @@
 {
   "name": "dsh-thinking-effort-slide-bar",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "description": "DSH 插件：将对话输入区的模型/推理强度入口替换为推理强度滑动条（兼容官方最新 DSH 与 DSH Desktop）",
   "type": "module",
   "main": "host.js",
@@ -25,13 +25,19 @@
       "inject": [
         "@deepseek-ai/dsh-api-remotes",
         "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-client-ui-model-selection"
+        "@deepseek-ai/dsh-client-ui-model-selection",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "@deepseek-ai/dsh-client-locale"
       ]
     }
   },
   "scripts": {
     "check": "node --check index.js && node --check host.js && node --check verify-client.cjs",
     "test": "node verify-client.cjs"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5"
   },
   "keywords": [
     "dsh",

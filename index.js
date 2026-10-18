@@ -12,6 +12,47 @@ window.__ModuleLoader__.load({
         // `modelDirectories.directoryFor` must carry the same injects.
         const inject = ["slots", "modelDirectories", "sessions", "remote", "remote.session"];
         const slotName = "conversation.input.model";
+        const settingsNamespace = "thinking-effort-slide-bar";
+        const DEFAULT_SETTINGS = Object.freeze({
+            showModelVersion: true, motion: "system", effortLanguage: "en",
+            showModelDescriptions: true, compact: false
+        });
+        const fallbackSettings = Object.freeze({ status: "unavailable", value: DEFAULT_SETTINGS, writable: false });
+        let settingsForm;
+        const settingsListeners = new Set();
+        const settingsStore = {
+            subscribe(listener) { settingsListeners.add(listener); return () => settingsListeners.delete(listener); },
+            getSnapshot() { return settingsForm?.getSnapshot() ?? fallbackSettings; }
+        };
+        const notifySettings = () => { for (const listener of settingsListeners) listener(); };
+        let officialRelease = "";
+        const releaseListeners = new Set();
+        const releaseStore = {
+            subscribe(listener) { releaseListeners.add(listener); return () => releaseListeners.delete(listener); },
+            getSnapshot() { return officialRelease; }
+        };
+        const normalizeSettings = (value) => ({
+            showModelVersion: typeof value?.showModelVersion === "boolean" ? value.showModelVersion : true,
+            motion: ["system", "reduced", "off"].includes(value?.motion) ? value.motion : "system",
+            effortLanguage: value?.effortLanguage === "zh" ? "zh" : "en",
+            showModelDescriptions: typeof value?.showModelDescriptions === "boolean" ? value.showModelDescriptions : true,
+            compact: value?.compact === true
+        });
+
+        // Read an explicit release suffix before consulting the official badge.
+        // The latter is registered UI metadata, not part of ModelCatalogModel.
+        function modelPresentation(group, model, release, showVersion) {
+            if (!showVersion) return { name: model.name, version: "" };
+            const suffix = /^deepseek-v\d+(?:\.\d+)*-(?:flash|pro)-(\d{4,8})$/i;
+            const inName = suffix.exec(model.name);
+            const inId = suffix.exec(model.id);
+            const version = inName?.[1] ?? inId?.[1];
+            if (version) return { name: inName ? model.name.slice(0, -(version.length + 1)) : model.name, version };
+            const official = ["deepseek-account", "deepseek-official"].includes(group.id);
+            // Match the official plugin's exact scope; never label other routes.
+            return { name: model.name, version: official && model.id === "deepseek-flash"
+                && model.name === "DeepSeek-V4.1-Flash" ? release : "" };
+        }
 
         const css = `
 .dsh-es-root {
@@ -19,6 +60,46 @@ window.__ModuleLoader__.load({
     position: relative;
     display: inline-flex;
 }
+.dsh-es-modelIdentity {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    vertical-align: middle;
+}
+.dsh-es-modelName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dsh-es-modelVersion {
+    flex: none;
+    color: var(--dsw-alias-label-link, #739de8);
+    background: rgba(100, 140, 220, .14);
+    border-radius: 6px;
+    padding: 0 5px;
+    font-size: 10px;
+    line-height: 18px;
+}
+.dsh-es-root[data-compact="true"] .dsh-es-trigger { padding: 0 3px 0 5px; gap: 3px; }
+.dsh-es-root[data-compact="true"] .dsh-es-menu { width: min(240px, calc(100vw - 24px)); padding: 6px; }
+.dsh-es-root[data-compact="true"] .dsh-es-menuItem,
+.dsh-es-root[data-compact="true"] .dsh-es-modelRow { padding: 5px 6px; }
+.dsh-es-root[data-compact="true"] .dsh-es-sliderWrap { padding: 6px; }
+.dsh-es-root[data-motion="reduced"] .dsh-es-sliderSweep,
+.dsh-es-root[data-motion="reduced"] .dsh-es-sliderSparkle,
+.dsh-es-root[data-motion="off"] .dsh-es-sliderSweep,
+.dsh-es-root[data-motion="off"] .dsh-es-sliderSparkle { display: none; animation: none; }
+.dsh-es-root[data-motion="off"] *, .dsh-es-root[data-motion="off"] *::before,
+.dsh-es-root[data-motion="off"] *::after { animation: none !important; transition: none !important; }
+.dsh-es-settings { display: grid; gap: 16px; max-width: 560px; color: var(--dsw-alias-label-primary); }
+.dsh-es-setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 14px; }
+.dsh-es-setting select, .dsh-es-settings button {
+    font: inherit; color: inherit; background: var(--dsw-alias-interactive-bg-hover, transparent);
+    border: 1px solid var(--dsw-alias-border-l3, #8886); border-radius: 8px; padding: 6px 10px;
+}
+.dsh-es-settings p { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.dsh-es-settingsActions { display: flex; gap: 8px; }
+.dsh-es-settings button:not(:disabled) { cursor: pointer; }
+.dsh-es-settings button:disabled { opacity: .5; cursor: default; }
+.dsh-es-settings :focus-visible { outline: 2px solid #739de8; outline-offset: 2px; }
 .dsh-es-trigger {
     min-width: 0;
     max-width: 230px;
@@ -659,8 +740,9 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
             return index >= 0 ? index : Math.floor((levels.length - 1) / 2);
         }
 
-        function levelName(level) {
-            return EFFORT_LABEL[level.id] ?? level.name;
+        function levelName(level, language = "en") {
+            const zh = { none: "关闭", off: "关闭", minimal: "极低", low: "低", medium: "中", high: "高", xhigh: "超高", max: "最高" };
+            return (language === "zh" ? zh[level.id] : EFFORT_LABEL[level.id]) ?? level.name;
         }
 
         function modelKey(provider, model) {
@@ -733,7 +815,75 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
             return select({ draft: "", imageIds: [], draftRev: 0, phase: "plain", occurrences: [], queue: [] });
         }
 
+        function SettingsPage() {
+            const snapshot = react.useSyncExternalStore(settingsStore.subscribe, settingsStore.getSnapshot);
+            const [draft, setDraft] = react.useState(() => normalizeSettings(snapshot.value));
+            const [dirty, setDirty] = react.useState(false);
+            const [revision, setRevision] = react.useState(snapshot.revision);
+            const [saving, setSaving] = react.useState(false);
+            const [message, setMessage] = react.useState("");
+            react.useEffect(() => {
+                if (!dirty) {
+                    setDraft(normalizeSettings(snapshot.value));
+                    setRevision(snapshot.revision);
+                }
+            }, [snapshot, dirty]);
+            const change = (field, value) => {
+                setDraft(previous => ({ ...previous, [field]: value }));
+                setDirty(true);
+                setMessage("");
+            };
+            const writable = snapshot.status === "ready" && snapshot.writable;
+            const save = async (event) => {
+                event.preventDefault();
+                if (!writable || saving || !dirty || !settingsForm) return;
+                const form = settingsForm;
+                setSaving(true);
+                setMessage("");
+                try {
+                    const accepted = await form.mutate(Object.entries(draft).map(([field, value]) => ({ op: "set", path: [field], value })), revision);
+                    if (accepted) {
+                        setDirty(false);
+                        setMessage("已保存，所有对话立即生效。");
+                    } else {
+                        // Keep edits, but let a deliberate retry use the recovered revision.
+                        setRevision(form.getSnapshot().revision);
+                        setMessage("保存未成功，配置可能已在其他窗口更改。请检查后重试。");
+                    }
+                } catch {
+                    setRevision(form.getSnapshot().revision);
+                    setMessage("保存失败，请检查连接后重试。");
+                } finally { setSaving(false); }
+            };
+            const control = (field, title, choices) => react.createElement("label", { className: "dsh-es-setting", key: field },
+                react.createElement("span", null, title),
+                choices
+                    ? react.createElement("select", { value: draft[field], disabled: saving || !writable, onChange: e => change(field, e.target.value) },
+                        choices.map(([value, label]) => react.createElement("option", { key: value, value }, label)))
+                    : react.createElement("input", { type: "checkbox", checked: draft[field], disabled: saving || !writable, onChange: e => change(field, e.target.checked) })
+            );
+            return react.createElement("form", { className: "dsh-es-settings", onSubmit: save, "aria-label": "思考强度滑动条设置", "aria-busy": saving },
+                react.createElement("p", null, "设置适用于当前配置下的所有对话，保存后立即生效，重启后保留。"),
+                control("showModelVersion", "显示模型版本徽标"),
+                control("motion", "动效模式", [["system", "跟随系统"], ["reduced", "减少动效"], ["off", "关闭动效"]]),
+                control("effortLanguage", "强度名称语言", [["en", "英文"], ["zh", "中文"]]),
+                control("showModelDescriptions", "显示模型说明悬浮提示"),
+                control("compact", "紧凑布局"),
+                react.createElement("p", null, "减少动效会关闭星尘和扫光；关闭动效同时取消过渡。紧凑布局保留模型、版本和档位。"),
+                react.createElement("div", { className: "dsh-es-settingsActions" },
+                    react.createElement("button", { type: "submit", disabled: !writable || saving || !dirty }, saving ? "保存中…" : "保存设置"),
+                    react.createElement("button", { type: "button", disabled: !writable || saving, onClick: () => {
+                        setDraft({ ...DEFAULT_SETTINGS }); setDirty(true); setMessage("");
+                    } }, "恢复默认值")
+                ),
+                react.createElement("p", { role: "status", "aria-live": "polite" }, message || (snapshot.status === "loading" ? "正在加载设置…" : !writable ? "当前连接无法修改设置。" : ""))
+            );
+        }
+
         function EffortSliderSeat({ locked, available, directory, load, select, useSession, useInput }) {
+            const settingsSnapshot = react.useSyncExternalStore(settingsStore.subscribe, settingsStore.getSnapshot);
+            const settings = normalizeSettings(settingsSnapshot.value);
+            const release = react.useSyncExternalStore(releaseStore.subscribe, releaseStore.getSnapshot);
             const state = react.useSyncExternalStore(
                 (listener) => directory.subscribe(listener),
                 () => directory.getSnapshot()
@@ -747,6 +897,8 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
             const [draft, setDraft] = react.useState(-1);
             const [pendingIndex, setPendingIndex] = react.useState(-1);
             const [reducedMotion, setReducedMotion] = react.useState(() => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+            const stopDecorations = reducedMotion || settings.motion !== "system";
+            const motionMode = settings.motion === "off" || (settings.motion === "system" && reducedMotion) ? "off" : settings.motion;
             const rootRef = react.useRef(null);
             const railRef = react.useRef(null);
             const pointerRef = react.useRef(null);
@@ -818,8 +970,8 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
             }, [available, load]);
 
             react.useEffect(() => {
-                if (!open || !modelsOpen) setHoveredNotice(null);
-            }, [open, modelsOpen]);
+                setHoveredNotice(null);
+            }, [open, modelsOpen, settings.showModelDescriptions]);
 
             react.useEffect(() => {
                 if (!open) return;
@@ -909,12 +1061,23 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
             const currentLevel = currentChoice === undefined ? undefined : levels[currentIndex];
             const effortLabel = currentLevel === undefined
                 ? undefined
-                : levelName(currentLevel);
+                : levelName(currentLevel, settings.effortLanguage);
             const modelLabel = currentChoice === undefined
                 ? "选择模型"
                 : currentChoice.model.name;
+            const currentPresentation = currentChoice
+                ? modelPresentation(currentChoice.group, currentChoice.model, release, settings.showModelVersion)
+                : { name: modelLabel, version: "" };
+            const accessibleModelLabel = [currentPresentation.name, currentPresentation.version].filter(Boolean).join(" ");
             // Reference design shows "ModelName EffortName" with a space separator.
-            const fullLabel = effortLabel === undefined ? modelLabel : `${modelLabel} ${effortLabel}`;
+            const fullLabel = effortLabel === undefined ? accessibleModelLabel : `${accessibleModelLabel} ${effortLabel}`;
+            const renderModelLabel = (group, model) => {
+                const presentation = modelPresentation(group, model, release, settings.showModelVersion);
+                if (!presentation.version) return model.name;
+                return react.createElement("span", { className: "dsh-es-modelIdentity", title: model.id },
+                    react.createElement("span", { className: "dsh-es-modelName" }, presentation.name),
+                    react.createElement("span", { className: "dsh-es-modelVersion", "aria-label": `模型版本 ${presentation.version}` }, presentation.version));
+            };
 
             const chooseModel = (group, model) => {
                 const key = modelKey(group.id, model.id);
@@ -1039,7 +1202,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
             // updatePlaybackRate preserves currentTime; rewriting CSS duration or
             // delay on every move would teleport the stars to a new phase.
             react.useEffect(() => {
-                if (reducedMotion) return;
+                if (stopDecorations) return;
                 const stars = railRef.current?.querySelectorAll(".dsh-es-sliderSparkle");
                 if (!stars) return;
                 const speed = 6 / (6 - 3.6 * energy);
@@ -1049,7 +1212,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                         if (typeof animation.updatePlaybackRate === "function") animation.updatePlaybackRate(speed);
                     }
                 }
-            }, [energy, open, modelsOpen, reducedMotion]);
+            }, [energy, open, modelsOpen, stopDecorations]);
 
             if (!available) return null;
 
@@ -1080,11 +1243,13 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                             const attachmentNotice = draftHasAttachments && knownTextOnlyModel(group.id, model)
                                 ? DRAFT_ATTACHMENT_NOTICE : undefined;
                             const noticeReason = failedReason ?? (imageBlocked ? IMAGE_BLOCK_REASON : attachmentNotice);
-                            const description = typeof model.description === "string" && model.description.trim().length > 0
+                            const description = settings.showModelDescriptions && typeof model.description === "string" && model.description.trim().length > 0
                                 ? model.description
                                 : undefined;
                             const annotation = noticeReason ?? description;
                             const annotationKey = modelKey(group.id, model.id);
+                            const presentation = modelPresentation(group, model, release, settings.showModelVersion);
+                            const accessibleName = [presentation.name, presentation.version].filter(Boolean).join(" ");
                             const accessibleAnnotation = [noticeReason, description].filter(Boolean).join("；");
                             const itemAction = active || noticeReason !== undefined || description !== undefined
                                 ? react.createElement(
@@ -1124,9 +1289,10 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                                         blocked ? "dsh-es-menuItemBlocked" : ""
                                     ].filter(Boolean).join(" "),
                                     "aria-disabled": blocked,
+                                    title: model.id,
                                     "aria-label": accessibleAnnotation.length > 0
-                                        ? `${model.name}：${accessibleAnnotation}`
-                                        : model.name,
+                                        ? `${accessibleName}：${accessibleAnnotation}`
+                                        : accessibleName,
                                     "aria-describedby": hoveredNotice?.id === annotationKey ? MODEL_ANNOTATION_ID : undefined,
                                     onClick: () => chooseModel(group, model),
                                     onMouseEnter: annotation === undefined
@@ -1138,7 +1304,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                                         : (event) => showModelAnnotation(event, annotation, annotationKey),
                                     onBlur: annotation === undefined ? undefined : hideModelAnnotation
                                 },
-                                react.createElement("span", { className: "dsh-es-menuItemName" }, model.name),
+                                react.createElement("span", { className: "dsh-es-menuItemName" }, renderModelLabel(group, model)),
                                 itemAction
                             );
                         })
@@ -1158,7 +1324,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                         "div",
                         { className: "dsh-es-sliderHead", "data-max": atMax ? "true" : undefined },
                         react.createElement("span", null, atMax ? "使用更深更强的思考" : "推理强度"),
-                        react.createElement("strong", null, displayedLevel === undefined ? currentEffort : levelName(displayedLevel))
+                        react.createElement("strong", null, displayedLevel === undefined ? currentEffort : levelName(displayedLevel, settings.effortLanguage))
                     ),
                     react.createElement(
                         "div",
@@ -1224,7 +1390,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                             onBlur: () => { if (draft >= 0 && !pointerRef.current) setDraft(-1); },
                             onKeyUp: onSliderKeyUp,
                             "aria-label": "推理强度",
-                            "aria-valuetext": displayedLevel === undefined ? currentEffort : levelName(displayedLevel)
+                            "aria-valuetext": displayedLevel === undefined ? currentEffort : levelName(displayedLevel, settings.effortLanguage)
                         })
                     ),
                     selectionError ? react.createElement("p", { className: "dsh-es-menuError", role: "alert" }, selectionError) : null,
@@ -1278,7 +1444,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                                 onClick: () => setModelsOpen(true)
                             },
                             react.createElement("span", { className: "dsh-es-modelRowLabel" }, "模型"),
-                            react.createElement("span", { className: "dsh-es-modelRowValue" }, currentChoice?.model.name ?? "—"),
+                            react.createElement("span", { className: "dsh-es-modelRowValue", title: currentChoice?.model.id }, currentChoice ? renderModelLabel(currentChoice.group, currentChoice.model) : "—"),
                             chevronIcon(ICON_CHEVRON_RIGHT, "dsh-es-chevron")
                         ),
                         slider === null
@@ -1297,6 +1463,8 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                 {
                     className: "dsh-es-root",
                     "data-dsh-plugin": name,
+                    "data-compact": settings.compact ? "true" : "false",
+                    "data-motion": motionMode,
                     ref: rootRef,
                     style: { position: "relative", display: "inline-flex" }
                 },
@@ -1308,14 +1476,14 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                         "aria-label": open ? "选择强度" : fullLabel,
                         "aria-haspopup": "menu",
                         "aria-expanded": open,
-                        title: open ? "选择强度" : fullLabel,
+                        title: open ? "选择强度" : `${fullLabel}${currentChoice ? `\n${currentChoice.model.id}` : ""}`,
                         disabled: locked,
                         onClick: () => {
                             setOpen((value) => !value);
                             setModelsOpen(false);
                         }
                     },
-                    react.createElement("span", { className: "dsh-es-triggerLabel" }, open ? "选择强度" : modelLabel),
+                    react.createElement("span", { className: "dsh-es-triggerLabel" }, open ? "选择强度" : currentChoice ? renderModelLabel(currentChoice.group, currentChoice.model) : modelLabel),
                     !open && effortLabel !== undefined
                         ? react.createElement("span", { className: "dsh-es-triggerEffort", style: effortColors(positionFor(currentIndex, levels.length), currentLevel) }, effortLabel)
                         : null,
@@ -1341,6 +1509,47 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
         }
 
         const apply = (ctx) => {
+            // Optional branches keep the slider available on clients without
+            // plugin settings or the temporary official release-label plugin.
+            ctx.inject(["slots", "configForms"], (scope) => {
+                if (!scope.configForms?.get) return;
+                const form = scope.configForms.get(settingsNamespace);
+                settingsForm = form;
+                const unsubscribe = form.subscribe(notifySettings);
+                notifySettings();
+                const unregister = scope.slots.inject("plugins.bundle.config", () => scope.slots.register({
+                    name: "plugins.bundle.config", key: "dsh-thinking-effort-slide-bar"
+                }, SettingsPage));
+                return () => {
+                    unregister?.(); unsubscribe();
+                    if (settingsForm === form) { settingsForm = undefined; notifySettings(); }
+                };
+            });
+            ctx.inject(["slots", "locale"], (scope) => {
+                if (!scope.locale?.bind || !scope.slots.entries) return;
+                const refresh = () => {
+                    // Public inspection + dictionary APIs: do not execute a
+                    // foreign component or borrow its child-render authorization.
+                    const entries = scope.slots.entriesOfSlot?.("conversation.input.model.label")
+                        ?? scope.slots.entries("conversation.input.model.label");
+                    const winner = entries[0];
+                    const namespace = /^deepseek-model-label-(\d{4,8})$/.exec(winner?.locale ?? "");
+                    const text = namespace ? scope.locale.bind(winner.locale)("badge.label") : "";
+                    const next = namespace && /^\d{4,8}$/.test(text) && text === namespace[1] ? text : "";
+                    if (next !== officialRelease) {
+                        officialRelease = next;
+                        for (const listener of releaseListeners) listener();
+                    }
+                };
+                const stopSlots = scope.slots.subscribe?.("conversation.input.model.label", refresh);
+                const stopLocale = scope.locale.subscribe?.(refresh);
+                refresh();
+                return () => {
+                    stopSlots?.(); stopLocale?.();
+                    officialRelease = "";
+                    for (const listener of releaseListeners) listener();
+                };
+            });
             ctx.inject(inject, (scope) => {
                 // Required services are declared in `inject` above and are
                 // ready on scope: slots (registry), modelDirectories (the
@@ -1397,8 +1606,8 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                 });
             });
         };
-        // No host-configurable surface: this plugin declares no Config schema
-        // (official client plugin shape) and accepts no row config.
+        // Host-owned Config is mirrored by configForms, rather than a second
+        // browser configuration plane or localStorage.
 
         exports.name = name;
         exports.inject = inject;
