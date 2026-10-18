@@ -165,8 +165,6 @@ window.__ModuleLoader__.load({
 .dsh-es-previewTrack::after { content: ''; position: absolute; right: 2px; top: 2px; height: 24px; width: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 8px #0004; }
 .dsh-es-previewTrack .dsh-es-sliderSparkle { position: absolute; }
 .dsh-es-ultracode { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; mix-blend-mode: screen; border-radius: inherit; }
-.dsh-es-sliderRail[data-ultracode="true"] .dsh-es-sliderBloom,
-.dsh-es-sliderRail[data-ultracode="true"] .dsh-es-sliderSparkles { visibility: hidden; }
 .dsh-es-sortGroup { margin-top: 10px; border: 1px solid var(--dsw-alias-border-l3, #8883); border-radius: 12px; overflow: hidden; }
 .dsh-es-sortRow { display: flex; align-items: center; gap: 8px; padding: 8px 10px; min-width: 0; }
 .dsh-es-sortHeading { background: var(--dsw-alias-interactive-bg-hover, #8881); font-weight: 500; }
@@ -1625,13 +1623,15 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
             const displayedIndex = draft >= 0 ? draft : pendingIndex >= 0 ? pendingIndex : currentIndex;
             const displayedLevel = levels[displayedIndex];
             const singleNotch = levels.length <= 1;
+            const atMax = !singleNotch && displayedIndex === levels.length - 1;
+            const ultraActive = atMax && settings.maxEffect === "ultracode" && !stopDecorations && !ultraFailed;
             const shownPosition = dragPosition ?? positionFor(displayedIndex, levels.length);
             const energy = singleNotch || !open || modelsOpen ? 0 : energyFor(shownPosition);
             const starCount = Math.round(18 * energy);
             // updatePlaybackRate preserves currentTime; rewriting CSS duration or
             // delay on every move would teleport the stars to a new phase.
             react.useEffect(() => {
-                if (stopDecorations) return;
+                if (stopDecorations || ultraActive) return;
                 const stars = railRef.current?.querySelectorAll(".dsh-es-sliderSparkle");
                 if (!stars) return;
                 const speed = 6 / (6 - 3.6 * energy);
@@ -1641,7 +1641,7 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                         if (typeof animation.updatePlaybackRate === "function") animation.updatePlaybackRate(speed);
                     }
                 }
-            }, [energy, open, modelsOpen, stopDecorations]);
+            }, [energy, open, modelsOpen, stopDecorations, ultraActive]);
 
             if (!available) return null;
 
@@ -1739,8 +1739,6 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                         })
                     ));
 
-            const atMax = !singleNotch && displayedIndex === levels.length - 1;
-            const ultraActive = atMax && settings.maxEffect === "ultracode" && !stopDecorations && !ultraFailed;
             const knobLeft = offsetFor(shownPosition);
             const fillWidth = shownPosition <= 0 ? "0px" : knobLeft;
             const color = paletteColor(shownPosition, settings.colors.map(hexRgb));
@@ -1775,17 +1773,21 @@ body[data-ds-dark-theme] .dsh-es-sliderHead strong {
                                 className: atMax ? "dsh-es-sliderFill dsh-es-sliderFillMax" : "dsh-es-sliderFill",
                                 style: { width: fillWidth, background: fillBackground }
                             },
-                                react.createElement("div", { className: "dsh-es-sliderBloom" },
-                                    react.createElement("div", { className: "dsh-es-sliderSweep" })),
-                                react.createElement("div", { className: "dsh-es-sliderSparkles", "aria-hidden": true },
-                                    MAX_SPARKLES.map((style, index) => react.createElement("span", {
-                                        key: index,
-                                        className: "dsh-es-sliderSparkle",
-                                        "data-visible": index < starCount ? "true" : "false",
-                                        style: { ...style, visibility: index < starCount ? "visible" : "hidden" }
-                                    }, react.createElement("span", { className: "dsh-es-sliderSparkleDot" })))
-                                ),
-                                ultraActive ? react.createElement(UltracodeEffect, { color: settings.colors[2], onFailure: () => setUltraFailed(true) }) : null
+                                // Children can override inherited visibility. Mount only the
+                                // selected decoration so classic stars cannot bleed through.
+                                ultraActive
+                                    ? react.createElement(UltracodeEffect, { color: settings.colors[2], onFailure: () => setUltraFailed(true) })
+                                    : react.createElement(react.Fragment, null,
+                                        react.createElement("div", { className: "dsh-es-sliderBloom" },
+                                            react.createElement("div", { className: "dsh-es-sliderSweep" })),
+                                        react.createElement("div", { className: "dsh-es-sliderSparkles", "aria-hidden": true },
+                                            MAX_SPARKLES.map((style, index) => react.createElement("span", {
+                                                key: index,
+                                                className: "dsh-es-sliderSparkle",
+                                                "data-visible": index < starCount ? "true" : "false",
+                                                style: { ...style, visibility: index < starCount ? "visible" : "hidden" }
+                                            }, react.createElement("span", { className: "dsh-es-sliderSparkleDot" })))
+                                        ))
                             )
                         ),
                         react.createElement(

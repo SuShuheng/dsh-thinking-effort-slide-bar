@@ -6,7 +6,11 @@ npm 包：[dsh-thinking-effort-slide-bar](https://www.npmjs.com/package/dsh-thin
 
 为 **DeepSeek Harness 官方桌面版**提供思考强度滑动条：拖动选择档位，松手确认；随着强度提高，绿色轨道逐渐加入金色与粉色光效，星尘沿轨道流动。
 
-**1.5.7** 适配 **DSH Desktop 0.2.1-rc.2**，保留 `0.2.0-rc.2` 接口兼容。插件详情设置采用 DSH 的布局、颜色变量和胶囊开关，新增共享配色、最高档动效选择、模型排序及新会话默认值。
+**1.5.8** 适配 **DSH Desktop 0.2.1-rc.2**，保留 `0.2.0-rc.2` 接口兼容。插件详情设置采用 DSH 的布局、颜色变量和胶囊开关，新增共享配色、最高档动效选择、模型排序及新会话默认值。
+
+1.5.8 修复最高档选择 Ultracode 点阵时经典星尘同时播放的问题：两种装饰互斥渲染，点阵失败时才恢复经典效果，其他档位保留原有动效。切回经典样式或发生点阵回退时，也会恢复对应强度的星尘播放速度。
+
+![1.5.8 最高档 Ultracode：只渲染点阵装饰](screenshots/effort-slider-v1.5.8-ultracode.png)
 
 ## 插件设置
 
@@ -91,9 +95,9 @@ GIF 使用本项目的实际前端组件录制，展示连续拖动、高档星�
 3. 安装完成后，完全退出并重新打开桌面端。
 4. 点击输入框底部的模型入口，看到“选择强度”与滑动条后即可使用。
 
-安装源可以选择“npm 官方源”或“中国大陆镜像源”。需要固定本次版本时，填写 `dsh-thinking-effort-slide-bar@1.5.7`。这里不需要添加 GitHub 用户名前缀；新版本发布后，镜像源同步可能存在延迟。
+安装源可以选择“npm 官方源”或“中国大陆镜像源”。需要固定本次版本时，填写 `dsh-thinking-effort-slide-bar@1.5.8`。这里不需要添加 GitHub 用户名前缀；新版本发布后，镜像源同步可能存在延迟。
 
-本项目的 [npm 页面](https://www.npmjs.com/package/dsh-thinking-effort-slide-bar) 提供已发布版本信息。也可从 [v1.5.7 Release](https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/tag/v1.5.7) 下载 `.tgz` 包并在插件页面选择本地安装，或通过 `github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.7` 安装。本地开发包可运行 `npm pack` 生成。
+本项目的 [npm 页面](https://www.npmjs.com/package/dsh-thinking-effort-slide-bar) 提供已发布版本信息。也可从 [v1.5.8 Release](https://github.com/SuShuheng/dsh-thinking-effort-slide-bar/releases/tag/v1.5.8) 下载 `.tgz` 包并在插件页面选择本地安装，或通过 `github:SuShuheng/dsh-thinking-effort-slide-bar#v1.5.8` 安装。本地开发包可运行 `npm pack` 生成。
 
 本地开发中的版本可以直接添加本项目所在的目录。安装后同样需要完全退出并重启桌面端。
 
@@ -104,7 +108,7 @@ GIF 使用本项目的实际前端组件录制，展示连续拖动、高档星�
 先启动一次桌面端完成初始化，再**完全退出桌面端**，使用它自带的命令安装本项目：
 
 ```powershell
-dsh plugin --profile desktop add dsh-thinking-effort-slide-bar@1.5.7
+dsh plugin --profile desktop add dsh-thinking-effort-slide-bar@1.5.8
 ```
 
 安装后重新打开桌面端。这里需要使用官方桌面端提供的 dsh 命令；单独通过 npm 安装的 dsh 不能管理官方 Desktop profile。
@@ -125,5 +129,6 @@ dsh plugin --profile desktop add dsh-thinking-effort-slide-bar@1.5.7
 | 1.5.5 | 展开时统一显示“选择强度”；正确处理官方新版的选择失败结果；适应新版附件 ID，避免把普通文件认定为图片；完整重写项目介绍、官方桌面端安装说明和动态预览。 |
 | **1.5.6** | 适配 0.2.1-rc.2；插件主详情页新增五项可持久化设置、失败重试及恢复默认值；三处统一展示官方模型版本徽标，支持显式模型 ID 版本后缀；保留 0.2.0-rc.2 配置接口兼容。 |
 | **1.5.7** | DSH 风格设置与自动保存状态；移除动效模式；共享三色配色与最高档点阵动效；服务商和模型排序；新会话默认模型及等级。 |
+| **1.5.8** | 修复最高档 Ultracode 点阵与经典星尘叠加：两种动效互斥渲染，保留经典样式、低档动效及点阵失败回退。 |
 
-运行 `npm run check` 与 `npm test` 检查语法和客户端行为。自动化覆盖连续拖动、取消、吸附、提交失败、延迟确认、键盘焦点、Host schema、自动保存队列与失败回退、旧 motion 隔离、只读状态、恢复默认值、版本徽标，以及默认模型的历史／手动选择保护、投影加载、一次性应用、加载期间竞争与资源卸载。浏览器额外验证真实 WebGL 绘制／释放／回退、拖动排序、共享配色、持久化、浅深主题和 390px 布局。
+运行 `npm run check` 与 `npm test` 检查语法和客户端行为。自动化覆盖连续拖动、取消、吸附、提交失败、延迟确认、键盘焦点、Host schema、自动保存队列与失败回退、旧 motion 隔离、只读状态、恢复默认值、版本徽标，以及默认模型的历史／手动选择保护、投影加载、一次性应用、加载期间竞争与资源卸载。浏览器额外验证真实 WebGL 绘制／释放／回退、拖动排序、共享配色、持久化、浅深主题和 390px 布局。1.5.8 增加最高档两种动效互斥、反复切换、低档回退、WebGL 上下文丢失以及经典动效恢复播放速度的回归验证。
